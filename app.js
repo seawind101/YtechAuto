@@ -12,12 +12,27 @@ const server = require('http').createServer(app);
 const sqlite3 = require('sqlite3');
 const fs = require('fs');
 
-//middelware
+const db = new sqlite3.Database('./database/database.sqlite', (err) => {
+    if (err) {
+        console.error('Could not connect to database', err);
+    } else {
+        console.log('Connected to database');
+    }
+});
+
+// Make database available to other modules
+app.locals.db = db;
+
 app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+//Middleware
 app.use(express.static('public'));
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 app.use(session({
-    secret: 'your_secret_key',
+    secret: process.env.SECRET || 'defaultsecretkey',
     resave: false,
     saveUninitialized: true
 }));

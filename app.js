@@ -31,9 +31,13 @@ app.post('/mechanic', (req, res) => {
 app.get('/customerDis', (req, res) => {
   res.render('customerDis');
 });
+app.post('/customerDis', (req, res) => {
+});
 //mechanic display
 app.get('/mechanicDis', (req, res) => {
   res.render('mechanicDis');
+});
+app.post('/mechanicDis', (req, res) => {
 });
 //start server
 server.listen(PORT, () => {

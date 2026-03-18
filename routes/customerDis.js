@@ -5,4 +5,8 @@ router.get('/customerDis', (req, res) => {
     res.render('customerDis');
 });
 
+
+router.post('/customerDis', (req, res) => {
+});
+
 module.exports = router;

@@ -11,10 +11,44 @@ const http = require('http');
 const server = require('http').createServer(app);
 const sqlite3 = require('sqlite3');
 const fs = require('fs');
-//middelware
+
+const db = new sqlite3.Database('./database/database.sqlite', (err) => {
+    if (err) {
+        console.error('Could not connect to database', err);
+    } else {
+        console.log('Connected to database');
+    }
+});
+
+// Make database available to other modules
+app.locals.db = db;
+
 app.set('view engine', 'ejs');
-app.use(express.static('public'))
-app.set('views', path.join(__dirname, 'public', 'views'));
+app.set('views', path.join(__dirname, 'views'));
+
+//Middleware
+app.use(express.static('public'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(session({
+    secret: process.env.SECRET || 'defaultsecretkey',
+    resave: false,
+    saveUninitialized: true
+}));
+
+//Routes
+const indexRouter = require('./routes/index');
+const mechanicRouter = require('./routes/mechanic');
+const customerRouter = require('./routes/customer');
+const customerDisRouter = require('./routes/customerDis');
+const mechanicDisRouter = require('./routes/mechanicDis');
+
+app.use('/', indexRouter);
+app.use('/', mechanicRouter);
+app.use('/', customerRouter);
+app.use('/', customerDisRouter);
+app.use('/', mechanicDisRouter);
 
 
 server.listen(PORT, () => {

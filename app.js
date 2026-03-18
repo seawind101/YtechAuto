@@ -14,13 +14,18 @@ app.set('view engine', 'ejs');
 app.get('/', (req, res) => {
   res.render('index');
 });
+
 //customer route
 app.get('/customer', (req, res) => {
   res.render('customer');
 });
+app.post('/customer', (req, res) => {
+});
 //mechanic route
 app.get('/mechanic', (req, res) => {
   res.render('mechanic');
+});
+app.post('/mechanic', (req, res) => {
 });
 server.listen(PORT, () => {
     console.log(`Example app listening on port http://localhost:${PORT}`);

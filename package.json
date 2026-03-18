@@ -13,8 +13,10 @@
   "dependencies": {
     "ejs": "^5.0.1",
     "express": "^5.2.1",
-    "node": "^25.8.1",
-    "sqlite3": "^6.0.1"
-  },
-  "devDependencies": {}
+    "express-session": "^1.19.0",
+    "fs": "^0.0.1-security",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "path": "^0.12.7"
+  }
 }

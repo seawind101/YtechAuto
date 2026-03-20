@@ -18,13 +18,47 @@ router.post('/mechanic', (req, res) => {
     let timeArrive = req.body.timeIn;
     let timeOut = req.body.timeOut;
     let totTime = req.body.totTime;
-    //add rest later
+    let custName = req.body.custName;
+    let custAdd = req.body.custAddress;
+    let custPhone = req.body.custPhone;
+    let custEmail = req.body.custEmail;
+    let vehicleymm = req.body.vehicleymm;
+    let vin = req.body.vin;  
+    let licensePlate= req.body.licensePlate;
+    let mileArrvive = req.body.mileIn;
+    let mileOut = req.body.mileOut;
+    let concern = req.body.concern;
+    let diagnosis = req.body.diagnosis;
+    let subTotParts = req.body.subTotParts;
+    let subTotLabor = req.body.subTotLabor;
+    let tax = req.body.tax;
+    let totEstimate = req.body.totEstimate;
+    let sDate = req.body.sDate;
+    let signature = req.body.signature;
+   
     console.log('RO Number:', roNum);
     console.log('Date:', roDate);
     console.log('Technician:', technician);
     console.log('Time In:', timeArrive);
     console.log('Time Out:', timeOut);
     console.log('Total Time:', totTime);
+    console.log('Customer Name:', custName);
+    console.log('Customer Address:', custAdd);
+    console.log('Customer Phone:', custPhone);
+    console.log('Customer Email:', custEmail);
+    console.log('Vehicle YMM:', vehicleymm);
+    console.log('VIN:', vin);
+    console.log('License Plate:', licensePlate);
+    console.log('Mileage In:', mileArrvive);
+    console.log('Mileage Out:', mileOut);
+    console.log('Concern:', concern);
+    console.log('Diagnosis:', diagnosis);
+    console.log('Subtotal Parts:', subTotParts);
+    console.log('Subtotal Labor:', subTotLabor);
+    console.log('Tax:', tax);
+    console.log('Total Estimate:', totEstimate);
+    console.log('Signature Date:', sDate);
+    console.log('Signature:', signature);
 
 });
 

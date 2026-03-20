@@ -463,15 +463,11 @@ if (custAddress.length > 100) {
 }
 
     if (errors.length > 0) {
-        // How do you want to show errors to the user?
         console.log('Errors found:', errors);
-        // Should you display them on the page?
-        // Should you highlight the problem fields?
+         alert(errors.join('\n'));
     } else {
-        // No errors - what should happen?
-        console.log('Form is valid!');
-        // Should the form submit to your backend now?
-        // How do you make that happen?
+        console.log('Form is valid! Submitting to backend...');
+        document.getElementById('repForm').submit();
     }
     });
   </script>

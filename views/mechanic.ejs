@@ -35,21 +35,26 @@
           </div>
         </div>
 
-        <h3>Time Information</h3>
+       <h3>Time Information</h3>
         <div class="form-grid">
           <div class="form-group">
-            <label for="timeIn">Time In</label>
-            <input type="text" name="timeIn" id="timeIn" placeholder="e.g. 9:00 AM">
-          </div>
-          <div class="form-group">
-            <label for="timeOut">Time Out</label>
-            <input type="text"name="timeOut" id="timeOut" placeholder="e.g. 11:30 AM">
-          </div>
-          <div class="form-group">
-            <label for="totTime">Total Time</label>
-            <input type="text" name="totTime" id="totTime" placeholder="e.g. 2.5 hrs">
-          </div>
+        <label for="timeIn">Time In</label>
+         <select name="timeIn" id="timeIn">
+          <option value="">Select time...</option>
+          </select>
+         </div>
+         <div class="form-group">
+          <label for="timeOut">Time Out</label>
+         <select name="timeOut" id="timeOut">
+         <option value="">Select time...</option>
+          </select>
+       </div>
+        <div class="form-group">
+        <label for="totTime">Total Time</label>
+         <input type="text" name="totTime" id="totTime" placeholder="e.g. 2.5 hrs">
         </div>
+        </div>
+
 
         <h3>Customer Information</h3>
         <div class="form-grid">
@@ -416,6 +421,8 @@
     tax = parseFloat(tax);
     totEstimate = parseFloat(totEstimate);
     custAddress = custAddress.trim();
+    let timeIn = document.getElementById('timeIn').value;
+    let timeOut = document.getElementById('timeOut').value;
     roNum = Number(roNum.trim());
     if (isNaN(roNum)) {
     errors.push('Repair Order number must be a valid number.');
@@ -485,6 +492,13 @@ if (custAddress.length > 100) {
     errors.push('Customer address cannot exceed 100 characters.');
 }
 
+if (timeIn === '') {
+    errors.push('Time In must be selected.');
+}
+if (timeOut === '') {
+    errors.push('Time Out must be selected.');
+}
+
     if (errors.length > 0) {
         console.log('Errors found:', errors);
          alert(errors.join('\n'));
@@ -493,6 +507,33 @@ if (custAddress.length > 100) {
         document.getElementById('repForm').submit();
     }
     });
+        function populateTimeDropdowns() {
+        let timeInSelect = document.getElementById('timeIn');
+        let timeOutSelect = document.getElementById('timeOut');
+    
+   
+       for (let hour = 1; hour <= 12; hour++) {
+           for (let minute = 0; minute < 60; minute += 30) {
+            let timeString = `${hour}:${minute.toString().padStart(2, '0')}`;
+            
+            // AM times
+            let amOption1 = new Option(`${timeString} AM`, `${timeString} AM`);
+            let amOption2 = new Option(`${timeString} AM`, `${timeString} AM`);
+            timeInSelect.add(amOption1);
+            timeOutSelect.add(amOption2);
+            
+            // PM times
+            let pmOption1 = new Option(`${timeString} PM`, `${timeString} PM`);
+            let pmOption2 = new Option(`${timeString} PM`, `${timeString} PM`);
+            timeInSelect.add(pmOption1);
+            timeOutSelect.add(pmOption2);
+            }
+        }
+    }
+
+
+    populateTimeDropdowns();
+
   </script>
 </body>
 </html>

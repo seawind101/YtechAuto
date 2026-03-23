@@ -97,5 +97,7 @@ document.addEventListener('DOMContentLoaded', function () {
       tags = tagsHidden.value.split(',').map(s => s.trim()).filter(Boolean);
       renderTags();
     }
+    // mark that we initialized the accordion so other scripts can skip theirs
+    try { window.customAccordionInitialized = true; } catch (e) { /* noop */ }
   }
 });

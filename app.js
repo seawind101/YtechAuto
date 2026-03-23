@@ -44,7 +44,7 @@ const mechanicRouter = require('./routes/mechanic');
 const customerRouter = require('./routes/customer');
 const customerDisRouter = require('./routes/customerDis');
 const mechanicDisRouter = require('./routes/mechanicDis');
-const authRouter = require('./views/auth');
+const authRouter = require('./routes/auth');
 
 app.use('/', indexRouter);
 app.use('/', mechanicRouter);

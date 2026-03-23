@@ -383,5 +383,32 @@
 
   <script src="js/mockup.js"></script>
   <script src="js/form.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Target the button and the table body
+      const addRepairLineButton = document.querySelector('.add-repair-line');
+      const tableBody = document.querySelector('table tbody');
+
+      console.log('Add Repair Line button:', addRepairLineButton);
+      console.log('Table body:', tableBody);
+      // Add event listener to the button
+      addRepairLineButton.addEventListener('click', function () {
+        // Create a new row
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+          <td><input type="text" placeholder="Description"></td>
+          <td><input type="number" placeholder="1" style="width:4em"></td>
+          <td><input type="text" placeholder="Part #"></td>
+          <td><input type="text" placeholder="0.00"></td>
+          <td><input type="text" placeholder="0.00"></td>
+          <td><input type="text" placeholder="0.00"></td>
+          <td><input type="text" placeholder="0.00"></td>
+        `;
+
+        // Append the new row to the table body
+        tableBody.appendChild(newRow);
+      });
+    });
+    </script>
 </body>
 </html>

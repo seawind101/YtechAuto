@@ -5,34 +5,37 @@
 (function () {
   'use strict';
 
-  // Accordion toggle for Vehicle Inspection sections
-  document.querySelectorAll('.accordion-header').forEach(function (header) {
-    header.addEventListener('click', function () {
-      var contentId = this.getAttribute('data-accordion');
-      var content = contentId ? document.getElementById(contentId) : null;
-      if (content) {
-        var isHidden = content.style.display === 'none';
-        document.querySelectorAll('.accordion-content').forEach(function (c) {
-          c.style.display = 'none';
-        });
-        document.querySelectorAll('.accordion-header').forEach(function (h) {
-          h.classList.add('collapsed');
-        });
-        if (isHidden) {
-          content.style.display = 'block';
-          this.classList.remove('collapsed');
+  // Accordion code: skip if another script already initialized it
+  if (!window.customAccordionInitialized) {
+    // Accordion toggle for Vehicle Inspection sections
+    document.querySelectorAll('.accordion-header').forEach(function (header) {
+      header.addEventListener('click', function () {
+        var contentId = this.getAttribute('data-accordion');
+        var content = contentId ? document.getElementById(contentId) : null;
+        if (content) {
+          var isHidden = content.style.display === 'none';
+          document.querySelectorAll('.accordion-content').forEach(function (c) {
+            c.style.display = 'none';
+          });
+          document.querySelectorAll('.accordion-header').forEach(function (h) {
+            h.classList.add('collapsed');
+          });
+          if (isHidden) {
+            content.style.display = 'block';
+            this.classList.remove('collapsed');
+          }
         }
-      }
+      });
     });
-  });
 
-  // Set initial state: Vehicle Info expanded, others collapsed
-  document.querySelectorAll('.accordion-content.collapsed-content').forEach(function (c) {
-    c.style.display = 'none';
-  });
-  document.querySelectorAll('.accordion-item:not(:first-child) .accordion-header').forEach(function (h) {
-    h.classList.add('collapsed');
-  });
+    // Set initial state: Vehicle Info expanded, others collapsed
+    document.querySelectorAll('.accordion-content.collapsed-content').forEach(function (c) {
+      c.style.display = 'none';
+    });
+    document.querySelectorAll('.accordion-item:not(:first-child) .accordion-header').forEach(function (h) {
+      h.classList.add('collapsed');
+    });
+  }
 
   // Video upload zone click (mock - opens file dialog but upload doesn't persist)
   var uploadZone = document.getElementById('video-upload-zone');

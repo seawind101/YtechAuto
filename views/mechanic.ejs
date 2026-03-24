@@ -25,7 +25,7 @@
         <div class="form-grid">
           <div class="form-group">
             <label for="roNum">Repair Order or Task Number #</label>
-            <input type="text"name="roNum" id="roNum" placeholder="Enter RO number">
+            <input type="text" name="roNum" id="roNum" placeholder="Enter RO number">
           </div>
           <div class="form-group">
             <label for="roDate">Date</label>
@@ -186,6 +186,9 @@
           <div class="signature-container">
             <canvas id="signatureCanvas" width="400" height="200" style="border: 1px solid var(--border); cursor: crosshair; background: white;"></canvas>
             <input type="hidden" name="signature" id="signatureData">
+            <div style="margin-top: 5px;">
+            <button type="button" id="clearSignature" style="background-color: brown; color: white;" class="btn btn-secondary">Clear Signature</button>
+          </div>
           </div>
         </div>
 
@@ -551,7 +554,14 @@ if (timeOut === '') {
     canvas.addEventListener('mouseout', function() {
       isDrawing = false;
     });
-
+    //clears things
+    document.getElementById('clearSignature').addEventListener('click', function() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasSignature = false;
+    document.getElementById('signatureData').value = '';
+    
+    console.log('Signature cleared');
+    });
         function populateTimeDropdowns() {
         let timeInSelect = document.getElementById('timeIn');
         let timeOutSelect = document.getElementById('timeOut');

@@ -41,15 +41,21 @@
         <div class="form-grid">
           <div class="form-group">
         <label for="timeIn">Time In</label>
-         <select name="timeIn" id="timeIn">
-          <option value="">Select time...</option>
-          </select>
+        <div class="time-picker" id="timeInPicker" style="display:flex;gap:6px;align-items:center">
+          <select id="timeInHour" class="time-part"></select>
+          <select id="timeInMinute" class="time-part"></select>
+          <select id="timeInAmPm" class="time-part"></select>
+        </div>
+        <input type="hidden" id="timeIn" name="timeIn" value="">
          </div>
          <div class="form-group">
           <label for="timeOut">Time Out</label>
-         <select name="timeOut" id="timeOut">
-         <option value="">Select time...</option>
-          </select>
+        <div class="time-picker" id="timeOutPicker" style="display:flex;gap:6px;align-items:center">
+          <select id="timeOutHour" class="time-part"></select>
+          <select id="timeOutMinute" class="time-part"></select>
+          <select id="timeOutAmPm" class="time-part"></select>
+        </div>
+        <input type="hidden" id="timeOut" name="timeOut" value="">
        </div>
         <div class="form-group">
         <label for="totTime">Total Time</label>
@@ -370,99 +376,5 @@
       <button type="button" class="btn btn-primary" id="upload-btn" style="margin-top:1rem">Upload</button>
     </section>
   </main>
-
-  
-  <script src="js/form.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      // Target the button and the table body
-      const addRepairLineButton = document.querySelector('.add-repair-line');
-      const tableBody = document.querySelector('table tbody');
-
-      console.log('Add Repair Line button:', addRepairLineButton);
-      console.log('Table body:', tableBody);
-      // Add event listener to the button
-      addRepairLineButton.addEventListener('click', function () {
-        // Create a new row
-        const newRow = document.createElement('tr');
-        newRow.innerHTML = `
-          <td><input type="text" placeholder="Description"></td>
-          <td><input type="number" placeholder="1" style="width:4em"></td>
-          <td><input type="text" placeholder="Part #"></td>
-          <td><input type="text" placeholder="0.00"></td>
-          <td><input type="text" placeholder="0.00"></td>
-          <td><input type="text" placeholder="0.00"></td>
-          <td><input type="text" placeholder="0.00"></td>
-        `;
-
-        // Append the new row to the table body
-        tableBody.appendChild(newRow);
-      });
-    });
-        function populateTimeDropdowns() {
-        let timeInSelect = document.getElementById('timeIn');
-        let timeOutSelect = document.getElementById('timeOut');
-    
-   
-       for (let hour = 1; hour <= 12; hour++) {
-           for (let minute = 0; minute < 60; minute += 30) {
-            let timeString = `${hour}:${minute.toString().padStart(2, '0')}`;
-            
-            // AM times
-            let amOption1 = new Option(`${timeString} AM`, `${timeString} AM`);
-            let amOption2 = new Option(`${timeString} AM`, `${timeString} AM`);
-            timeInSelect.add(amOption1);
-            timeOutSelect.add(amOption2);
-            
-            // PM times
-            let pmOption1 = new Option(`${timeString} PM`, `${timeString} PM`);
-            let pmOption2 = new Option(`${timeString} PM`, `${timeString} PM`);
-            timeInSelect.add(pmOption1);
-            timeOutSelect.add(pmOption2);
-            }
-        }
-    }
-    populateTimeDropdowns();
-    //tottimecalc
-    function calculateTotalTime() {
-    let timeInValue = document.getElementById('timeIn').value;
-    let timeOutValue = document.getElementById('timeOut').value;
-    let totTimeField = document.getElementById('totTime');
-    
-    if (!timeInValue || !timeOutValue) {
-        totTimeField.value = '';
-        return;
-    }
-
-    function timeToMinutes(timeStr) {
-        let [time, period] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-        
-        return hours * 60 + minutes;
-    }
-    
-    let timeInMinutes = timeToMinutes(timeInValue);
-    let timeOutMinutes = timeToMinutes(timeOutValue);
-
-    if (timeOutMinutes <= timeInMinutes) {
-        timeOutMinutes += 24 * 60;
-    }
-    
-    let totalMinutes = timeOutMinutes - timeInMinutes;
-    let hours = Math.floor(totalMinutes / 60);
-    let minutes = totalMinutes % 60;
-
-    let decimalHours = hours + (minutes / 60);
-    totTimeField.value = decimalHours.toFixed(1);
-    }
-
-    document.getElementById('timeIn').addEventListener('change', calculateTotalTime);
-    document.getElementById('timeOut').addEventListener('change', calculateTotalTime);
-
-  </script>
-    </script>
 </body>
 </html>

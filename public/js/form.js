@@ -1,195 +1,331 @@
-console.log('Form validation script loaded.');
+console.log('Merged form + column script loaded.');
 
 document.addEventListener('DOMContentLoaded', function () {
-  const form = document.getElementById('repForm');
-  if (!form) return;
+  // guard to avoid double initialization if other scripts also run
+  if (window.customAccordionInitialized) {
+    console.log('customAccordion already initialized, skipping duplicate init.');
+  } else {
+    // --- Accordion: only one open at a time ---
+    (function initAccordion() {
+      const headers = document.querySelectorAll('.accordion-header');
+      headers.forEach(h => {
+        h.style.cursor = 'pointer';
+        h.addEventListener('click', () => {
+          const id = h.dataset.accordion;
+          let content = id ? document.getElementById(id) : h.nextElementSibling;
+          if (!content) return;
+          const isOpen = content.style.display === 'block';
+          document.querySelectorAll('.accordion-content').forEach(c => {
+            c.style.display = 'none';
+            c.classList.add('collapsed-content');
+          });
+          if (!isOpen) {
+            content.style.display = 'block';
+            content.classList.remove('collapsed-content');
+          }
+        });
+      });
+      window.customAccordionInitialized = true;
+    })();
+  }
 
-  // Populate the composite time pickers (hour, minute, AM/PM)
-  function populateTimePickers() {
-    const parts = ['timeIn', 'timeOut'];
-    parts.forEach(prefix => {
-      const hour = document.getElementById(prefix + 'Hour');
-      const minute = document.getElementById(prefix + 'Minute');
-      const ampm = document.getElementById(prefix + 'AmPm');
-      if (!hour || !minute || !ampm) return;
+  // --- Tag UI (Emissions section) ---
+  (function initTags() {
+    const root = document.getElementById('tags-root');
+    const list = document.getElementById('tag-list');
+    const input = document.getElementById('tag-input');
+    const addBtn = document.getElementById('add-tag');
+    const hidden = document.getElementById('tags-hidden');
+    if (!root || !list || !input || !addBtn || !hidden) return;
 
-      // hours 1-12
-      hour.innerHTML = '';
-      hour.add(new Option('Hour', ''));
-      for (let h = 1; h <= 12; h++) hour.add(new Option(String(h), String(h)));
+    let tags = [];
+    function render() {
+      list.innerHTML = '';
+      tags.forEach((t, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'tag-chip';
+        chip.textContent = t;
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'tag-remove';
+        x.textContent = '×';
+        x.addEventListener('click', () => {
+          tags.splice(i, 1);
+          sync();
+          render();
+        });
+        chip.appendChild(x);
+        list.appendChild(chip);
+      });
+      hidden.value = tags.join(',');
+    }
 
-      // minutes: 00 - 59 (every minute)
-      minute.innerHTML = '';
-      minute.add(new Option('Min', ''));
-      for (let m = 0; m < 60; m++) {
-        const mm = m.toString().padStart(2, '0');
-        minute.add(new Option(mm, mm));
-      }
+    function sync() {
+      hidden.value = tags.join(',');
+    }
 
-      // AM/PM
-      ampm.innerHTML = '';
-      ampm.add(new Option('AM/PM', ''));
-      ['AM','PM'].forEach(x => ampm.add(new Option(x, x)));
+    addBtn.addEventListener('click', () => {
+      const v = input.value.trim();
+      if (!v) return;
+      if (!tags.includes(v.toLowerCase())) tags.push(v);
+      input.value = '';
+      render();
     });
-  }
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addBtn.click();
+      }
+    });
 
-  function showErrors(errors) {
-    if (!errors || errors.length === 0) return;
-    alert(errors.join('\n'));
-  }
+    // initialize from hidden if present
+    if (hidden.value) {
+      tags = hidden.value.split(',').filter(Boolean);
+      render();
+    }
+  })();
 
-  function validateAndSubmit(e) {
-    e.preventDefault();
-    const errors = [];
-
-    const roNumEl = document.getElementById('roNum');
-    const roDateEl = document.getElementById('roDate');
-    const technicianEl = document.getElementById('technician');
-    const timeInEl = document.getElementById('timeIn');
-    const timeOutEl = document.getElementById('timeOut');
-    const totTimeEl = document.getElementById('totTime');
-    const custNameEl = document.getElementById('custName');
-    const custAddressEl = document.getElementById('custAddress');
-    const custPhoneEl = document.getElementById('custPhone');
-    const custEmailEl = document.getElementById('custEmail');
-    const vehicleEl = document.getElementById('vehicleymm');
-    const vinEl = document.getElementById('vin');
-    const licenseEl = document.getElementById('licensePlate');
-    const mileInEl = document.getElementById('mileIn');
-    const mileOutEl = document.getElementById('mileOut');
-    const diagnosisEl = document.getElementById('diagnosis');
+  // --- Recommended Repairs: row wiring, calc, add/remove, block '-' input ---
+  (function initRepairs() {
+    const table = document.getElementById('repairs-table');
+    const addBtn = document.querySelector('.add-repair-line');
+    const subPartsEl = document.getElementById('subTotParts');
+    const subLaborEl = document.getElementById('subTotLabor');
     const taxEl = document.getElementById('tax');
     const totEstimateEl = document.getElementById('totEstimate');
 
-    // roNum - required numeric
-    const roNum = roNumEl ? roNumEl.value.trim() : '';
-    if (!roNum) {
-      errors.push('Repair Order number is required.');
-    } else if (isNaN(Number(roNum))) {
-      errors.push('Repair Order number must be a valid number.');
+    if (!table) return;
+
+    // utility
+  function toNum(v) { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n) ? 0 : n; }
+    function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2); }
+
+    function calcRow(row) {
+      const desc = row.querySelector('.rp-desc');
+      const qtyEl = row.querySelector('.rp-qty');
+      const partsPriceEl = row.querySelector('.rp-partprice');
+      const partsTotalEl = row.querySelector('.rp-partstotal');
+      const laborHoursEl = row.querySelector('.rp-laborhours');
+      const laborTotalEl = row.querySelector('.rp-labortotal');
+
+      // parse and clamp numeric inputs so negatives don't affect totals
+      let qty = toNum(qtyEl ? qtyEl.value : 0);
+      let price = toNum(partsPriceEl ? partsPriceEl.value : 0);
+      let laborHours = toNum(laborHoursEl ? laborHoursEl.value : 0);
+      qty = Math.max(0, qty);
+      price = Math.max(0, price);
+      laborHours = Math.max(0, laborHours);
+
+      const partsTotal = qty * price;
+      const laborTotal = laborHours * 100; // per your request
+
+      if (partsTotalEl) { partsTotalEl.value = fmt(partsTotal); }
+      if (laborTotalEl) { laborTotalEl.value = fmt(laborTotal); }
+
+      updateSubtotals();
     }
 
-    // roDate - required
-    const roDate = roDateEl ? roDateEl.value : '';
-    if (!roDate) errors.push('Date is required.');
-
-    // technician - required, letters/spaces/hyphen/period, min length
-    const technician = technicianEl ? technicianEl.value.trim() : '';
-    if (!technician) {
-      errors.push('Technician name is required.');
-    } else if (technician.length < 2) {
-      errors.push('Technician name must be at least 2 characters.');
-    } else if (!/^[a-zA-Z\s\-\.]+$/.test(technician)) {
-      errors.push('Technician name contains invalid characters.');
+    function updateSubtotals() {
+      const rows = Array.from(table.querySelectorAll('tbody tr'));
+      let partsSum = 0, laborSum = 0;
+      rows.forEach(r => {
+        const pt = toNum(r.querySelector('.rp-partstotal')?.value);
+        const lt = toNum(r.querySelector('.rp-labortotal')?.value);
+        partsSum += pt;
+        laborSum += lt;
+      });
+      if (subPartsEl) subPartsEl.value = fmt(partsSum);
+      if (subLaborEl) subLaborEl.value = fmt(laborSum);
+      // tax = 6% of parts sum
+      const tax = partsSum * 0.06;
+      if (taxEl) { taxEl.value = fmt(tax); taxEl.readOnly = true; taxEl.tabIndex = -1; }
+      // total estimate excludes labor
+      if (totEstimateEl) totEstimateEl.value = fmt(partsSum + tax);
     }
 
-  // timeIn/timeOut required (composite pickers update the hidden inputs)
-  const timeIn = timeInEl ? timeInEl.value : '';
-  const timeOut = timeOutEl ? timeOutEl.value : '';
-  if (!timeIn) errors.push('Time In must be selected.');
-  if (!timeOut) errors.push('Time Out must be selected.');
-
-    // customer info
-    const custName = custNameEl ? custNameEl.value.trim() : '';
-    if (!custName) errors.push('Customer name is required.');
-
-    const custAddress = custAddressEl ? custAddressEl.value.trim() : '';
-    if (!custAddress) errors.push('Customer address is required.');
-    else if (custAddress.length < 5) errors.push('Customer address must be at least 5 characters.');
-    else if (custAddress.length > 100) errors.push('Customer address cannot exceed 100 characters.');
-
-    const custPhone = custPhoneEl ? custPhoneEl.value.trim() : '';
-    if (custPhone && !/^(\d{10}|\d{3}-\d{3}-\d{4})$/.test(custPhone)) {
-      errors.push('Phone number must be 10 digits or XXX-XXX-XXXX.');
+    function sanitizeMinusInput(el) {
+      el.addEventListener('keydown', function (e) {
+        if (e.key === '-' || e.key === 'Subtract' || e.key === 'Decimal') e.preventDefault();
+      });
+      el.addEventListener('paste', function (ev) {
+        ev.preventDefault();
+        const txt = (ev.clipboardData || window.clipboardData).getData('text').replace(/-/g, '');
+        document.execCommand('insertText', false, txt);
+      });
+      el.addEventListener('input', function () {
+        if (el.value.includes('-')) el.value = el.value.replace(/-/g, '');
+      });
     }
 
-    const custEmail = custEmailEl ? custEmailEl.value.trim() : '';
-    if (custEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(custEmail)) {
-      errors.push('Email must be in a valid format.');
+    // If a row's inputs don't have the expected classes (old markup), assign them by column position
+    function ensureRowClasses(row) {
+      const inputs = Array.from(row.querySelectorAll('input,select'));
+      // mapping by column: 0-desc,1-qty,2-part#,3-partprice,4-partstotal,5-laborhours,6-labortotal
+      if (inputs.length >= 1 && !inputs[0].classList.contains('rp-desc')) inputs[0].classList.add('rp-desc');
+      if (inputs.length >= 2 && !inputs[1].classList.contains('rp-qty')) {
+        inputs[1].classList.add('rp-qty');
+        // ensure numeric constraints
+        try { inputs[1].setAttribute('type','number'); inputs[1].setAttribute('min','0'); } catch(e){}
+      }
+      if (inputs.length >= 4 && !inputs[3].classList.contains('rp-partprice')) {
+        inputs[3].classList.add('rp-partprice');
+        try { inputs[3].setAttribute('type','number'); inputs[3].setAttribute('min','0'); inputs[3].setAttribute('step','0.01'); } catch(e){}
+      }
+      if (inputs.length >= 5 && !inputs[5].classList.contains('rp-laborhours')) {
+        inputs[5].classList.add('rp-laborhours');
+        try { inputs[5].setAttribute('type','number'); inputs[5].setAttribute('min','0'); inputs[5].setAttribute('step','0.01'); } catch(e){}
+      }
+      if (inputs.length >= 4 && !inputs[4].classList.contains('rp-partstotal')) inputs[4].classList.add('rp-partstotal');
+      if (inputs.length >= 6 && !inputs[6].classList.contains('rp-labortotal')) inputs[6].classList.add('rp-labortotal');
     }
 
-    // vehicle info
-    const vehicle = vehicleEl ? vehicleEl.value.trim() : '';
+    function wireRow(row) {
+      // expect inputs with classes used above; when adding rows, ensure same classes are used
+      const qty = row.querySelector('.rp-qty');
+      const partPrice = row.querySelector('.rp-partprice');
+      const laborHours = row.querySelector('.rp-laborhours');
+      const partsTotal = row.querySelector('.rp-partstotal');
+      const laborTotal = row.querySelector('.rp-labortotal');
 
-    const vin = vinEl ? vinEl.value.trim() : '';
-    if (vin && vin.length > 17) errors.push('VIN too long. Max 17 characters.');
+      [qty, partPrice, laborHours].forEach(el => {
+        if (!el) return;
+        // prevent minus sign and sanitize paste
+        sanitizeMinusInput(el);
+        el.addEventListener('input', () => calcRow(row));
+        // enforce integer & non-negative for qty on blur
+        if (el.classList && el.classList.contains('rp-qty')) {
+          el.addEventListener('blur', () => {
+            if (el.value === '' || el.value == null) return;
+            let n = Math.floor(Number(el.value) || 0);
+            if (n < 0) n = 0;
+            el.value = n;
+            calcRow(row);
+          });
+        }
+        if (el.classList && (el.classList.contains('rp-partprice') || el.classList.contains('rp-laborhours'))) {
+          el.addEventListener('blur', () => {
+            if (el.value === '' || el.value == null) return;
+            let v = Number(el.value) || 0;
+            if (v < 0) v = 0;
+            el.value = (Math.round(v * 100) / 100).toFixed(2);
+            calcRow(row);
+          });
+        }
+      });
 
-    const licensePlate = licenseEl ? licenseEl.value.trim() : '';
-    if (licensePlate && licensePlate.length > 10) errors.push('License plate too long. Max 10 characters.');
+      // make totals readonly and unfocusable
+      if (partsTotal) { partsTotal.readOnly = true; partsTotal.tabIndex = -1; partsTotal.setAttribute('aria-readonly','true'); }
+      if (laborTotal) { laborTotal.readOnly = true; laborTotal.tabIndex = -1; laborTotal.setAttribute('aria-readonly','true'); }
 
-    // diagnosis required (not part of 'concern/recommended/comments')
-    const diagnosis = diagnosisEl ? diagnosisEl.value.trim() : '';
-    if (!diagnosis) errors.push('Diagnosis is required. Put N/A if none.');
-
-    // totals (optional but check numeric when provided)
-    const tax = taxEl ? taxEl.value.trim() : '';
-    if (tax !== '' && (isNaN(parseFloat(tax)) || parseFloat(tax) < 0)) errors.push('Tax must be a non-negative number.');
-
-    const totEstimate = totEstimateEl ? totEstimateEl.value.trim() : '';
-    if (totEstimate !== '' && (isNaN(parseFloat(totEstimate)) || parseFloat(totEstimate) < 0)) errors.push('Total Estimate must be a non-negative number.');
-
-    if (errors.length > 0) {
-      showErrors(errors);
-      // focus the first invalid field where possible
-      const firstInvalid = [roNumEl, roDateEl, technicianEl, timeInEl, timeOutEl, custNameEl, custAddressEl, mileInEl, mileOutEl, diagnosisEl].find(el => el && (!el.value || (el.tagName === 'SELECT' && el.value === '')));
-      if (firstInvalid) firstInvalid.focus();
-      return false;
+      // remove buttons
+      const removeBtn = row.querySelector('.remove-repair-line');
+      if (removeBtn) removeBtn.addEventListener('click', () => {
+        row.parentElement.removeChild(row);
+        updateSubtotals();
+      });
     }
 
-    // all good -> submit
-    form.submit();
-    return true;
-  }
+  // wire existing rows (ensure classes exist first)
+  Array.from(table.querySelectorAll('tbody tr')).forEach(r => { ensureRowClasses(r); wireRow(r); });
 
-  populateTimePickers();
-
-  // compute total time (hours) from composite pickers and write to #totTime
-  function computeTotalTime() {
-    const inHour = document.getElementById('timeInHour').value;
-    const inMin = document.getElementById('timeInMinute').value;
-    const inAmPm = document.getElementById('timeInAmPm').value;
-    const outHour = document.getElementById('timeOutHour').value;
-    const outMin = document.getElementById('timeOutMinute').value;
-    const outAmPm = document.getElementById('timeOutAmPm').value;
-    const totTimeField = document.getElementById('totTime');
-    const hiddenIn = document.getElementById('timeIn');
-    const hiddenOut = document.getElementById('timeOut');
-
-    if (!inHour || !inMin || !inAmPm || !outHour || !outMin || !outAmPm) {
-      if (totTimeField) totTimeField.value = '';
-      if (hiddenIn) hiddenIn.value = '';
-      if (hiddenOut) hiddenOut.value = '';
-      return;
+    // add new row handler (keep markup consistent with your table)
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        const tbody = table.querySelector('tbody');
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+          <td><input type="text" class="rp-desc" /></td>
+          <td><input type="number" min="0" class="rp-qty" /></td>
+          <td><input type="text" class="rp-um" /></td>
+          <td><input type="number" min="0" step="0.01" class="rp-partprice" /></td>
+          <td><input type="text" class="rp-partstotal" /></td>
+          <td><input type="number" min="0" step="0.01" class="rp-laborhours" /></td>
+          <td><input type="text" class="rp-labortotal" /></td>
+          <td><button type="button" class="remove-repair-line">Remove</button></td>
+        `;
+        tbody.appendChild(newRow);
+        wireRow(newRow);
+      });
     }
 
-    const inStr = `${inHour}:${inMin} ${inAmPm}`;
-    const outStr = `${outHour}:${outMin} ${outAmPm}`;
-    if (hiddenIn) hiddenIn.value = inStr;
-    if (hiddenOut) hiddenOut.value = outStr;
+    // initial subtotal calc
+    updateSubtotals();
+  })();
 
-    function timeToMinutes(timeStr) {
-      let [time, period] = timeStr.split(' ');
-      let [hours, minutes] = time.split(':').map(Number);
-      if (period === 'PM' && hours !== 12) hours += 12;
-      if (period === 'AM' && hours === 12) hours = 0;
-      return hours * 60 + minutes;
+  // --- Time pickers (full minute granularity) + total time compute ---
+  (function initTimePickers() {
+    const form = document.getElementById('repForm');
+    if (!form) return;
+
+    function populateTimePickers() {
+      const parts = ['timeIn', 'timeOut'];
+      parts.forEach(prefix => {
+        const hour = document.getElementById(prefix + 'Hour');
+        const minute = document.getElementById(prefix + 'Minute');
+        const ampm = document.getElementById(prefix + 'AmPm');
+        if (!hour || !minute || !ampm) return;
+
+        hour.innerHTML = '';
+        hour.add(new Option('Hour', ''));
+        for (let h = 1; h <= 12; h++) hour.add(new Option(String(h), String(h)));
+
+        minute.innerHTML = '';
+        minute.add(new Option('Min', ''));
+        for (let m = 0; m < 60; m++) minute.add(new Option(String(m).padStart(2, '0'), String(m).padStart(2, '0')));
+
+        ampm.innerHTML = '';
+        ampm.add(new Option('AM/PM', ''));
+        ['AM','PM'].forEach(x => ampm.add(new Option(x, x)));
+      });
     }
 
-    let tIn = timeToMinutes(inStr);
-    let tOut = timeToMinutes(outStr);
-    if (tOut <= tIn) tOut += 24 * 60; // cross-midnight
-    const diff = tOut - tIn;
-    const decimalHours = diff / 60;
-    if (totTimeField) totTimeField.value = decimalHours.toFixed(2);
-  }
+    function computeTotalTime() {
+      const inHour = document.getElementById('timeInHour').value;
+      const inMin = document.getElementById('timeInMinute').value;
+      const inAmPm = document.getElementById('timeInAmPm').value;
+      const outHour = document.getElementById('timeOutHour').value;
+      const outMin = document.getElementById('timeOutMinute').value;
+      const outAmPm = document.getElementById('timeOutAmPm').value;
+      const totTimeField = document.getElementById('totTime');
+      const hiddenIn = document.getElementById('timeIn');
+      const hiddenOut = document.getElementById('timeOut');
 
-  // wire pickers to computeTotalTime
-  ['timeIn','timeOut'].forEach(prefix => {
-    ['Hour','Minute','AmPm'].forEach(suffix => {
-      const el = document.getElementById(prefix + suffix);
-      if (el) el.addEventListener('change', computeTotalTime);
+      if (!inHour || !inMin || !inAmPm || !outHour || !outMin || !outAmPm) {
+        if (totTimeField) totTimeField.value = '';
+        if (hiddenIn) hiddenIn.value = '';
+        if (hiddenOut) hiddenOut.value = '';
+        return;
+      }
+
+      const inStr = `${inHour}:${inMin} ${inAmPm}`;
+      const outStr = `${outHour}:${outMin} ${outAmPm}`;
+      if (hiddenIn) hiddenIn.value = inStr;
+      if (hiddenOut) hiddenOut.value = outStr;
+
+      function timeToMinutes(timeStr) {
+        let [time, period] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+        return hours * 60 + minutes;
+      }
+
+      let tIn = timeToMinutes(inStr);
+      let tOut = timeToMinutes(outStr);
+      if (tOut <= tIn) tOut += 24 * 60; // cross-midnight
+      const diff = tOut - tIn;
+      const decimalHours = diff / 60;
+      if (totTimeField) totTimeField.value = decimalHours.toFixed(2);
+    }
+
+    populateTimePickers();
+    ['timeIn','timeOut'].forEach(prefix => {
+      ['Hour','Minute','AmPm'].forEach(suffix => {
+        const el = document.getElementById(prefix + suffix);
+        if (el) el.addEventListener('change', computeTotalTime);
+      });
     });
-  });
+  })();
 
   // --- Signature canvas setup ---
   (function setupSignature() {
@@ -200,26 +336,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const ctx = canvas.getContext('2d');
     let isDrawing = false;
-    let hasSignature = false;
     let lastX = 0, lastY = 0;
-
-    ctx.strokeStyle = '#000000';
+    ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // pointer events (works for mouse and touch)
     canvas.addEventListener('pointerdown', function (e) {
       canvas.setPointerCapture(e.pointerId);
       isDrawing = true;
-      hasSignature = true;
       const rect = canvas.getBoundingClientRect();
       lastX = e.clientX - rect.left;
       lastY = e.clientY - rect.top;
       ctx.beginPath();
       ctx.moveTo(lastX, lastY);
     });
-
     canvas.addEventListener('pointermove', function (e) {
       if (!isDrawing) return;
       const rect = canvas.getBoundingClientRect();
@@ -229,15 +360,12 @@ document.addEventListener('DOMContentLoaded', function () {
       ctx.stroke();
       lastX = x; lastY = y;
     });
-
     function endDraw(e) {
       if (!isDrawing) return;
       isDrawing = false;
       try { canvas.releasePointerCapture && canvas.releasePointerCapture(e.pointerId); } catch (err) {}
-      // save to hidden input
-      try { signatureData.value = canvas.toDataURL('image/png'); } catch (err) { /* ignore */ }
+      try { signatureData.value = canvas.toDataURL('image/png'); } catch (err) {}
     }
-
     canvas.addEventListener('pointerup', endDraw);
     canvas.addEventListener('pointercancel', endDraw);
     canvas.addEventListener('pointerout', endDraw);
@@ -245,11 +373,136 @@ document.addEventListener('DOMContentLoaded', function () {
     if (clearBtn) {
       clearBtn.addEventListener('click', function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        hasSignature = false;
         signatureData.value = '';
-        console.log('Signature cleared');
       });
     }
   })();
-  form.addEventListener('submit', validateAndSubmit);
+
+  // --- Form validation & submit handling (main) ---
+  (function initValidation() {
+    const form = document.getElementById('repForm');
+    if (!form) return;
+
+    function showErrors(errors) {
+      if (!errors || errors.length === 0) return;
+      alert(errors.join('\n'));
+    }
+
+    function validateAndSubmit(e) {
+      e.preventDefault();
+      const errors = [];
+
+      // collect elements used earlier in your validation
+      const roNumEl = document.getElementById('roNum');
+      const roDateEl = document.getElementById('roDate');
+      const technicianEl = document.getElementById('technician');
+      const timeInEl = document.getElementById('timeIn');
+      const timeOutEl = document.getElementById('timeOut');
+      const custNameEl = document.getElementById('custName');
+      const custAddressEl = document.getElementById('custAddress');
+      const mileInEl = document.getElementById('mileIn');
+      const mileOutEl = document.getElementById('mileOut');
+      const diagnosisEl = document.getElementById('diagnosis');
+      const taxEl = document.getElementById('tax');
+      const totEstimateEl = document.getElementById('totEstimate');
+      const signatureData = document.getElementById('signatureData');
+
+      // basic required checks
+      const roNum = roNumEl ? roNumEl.value.trim() : '';
+      if (!roNum) errors.push('Repair Order number is required.');
+      else if (isNaN(Number(roNum))) errors.push('Repair Order number must be a valid number.');
+
+      const roDate = roDateEl ? roDateEl.value : '';
+      if (!roDate) errors.push('Date is required.');
+
+      const technician = technicianEl ? technicianEl.value.trim() : '';
+      if (!technician) errors.push('Technician is required.');
+
+      if (!timeInEl || !timeInEl.value) errors.push('Time In must be selected.');
+      if (!timeOutEl || !timeOutEl.value) errors.push('Time Out must be selected.');
+
+      const custName = custNameEl ? custNameEl.value.trim() : '';
+      if (!custName) errors.push('Customer name is required.');
+
+      const custAddress = custAddressEl ? custAddressEl.value.trim() : '';
+      if (!custAddress) errors.push('Customer address is required.');
+
+      // mileage
+      const mileIn = mileInEl ? mileInEl.value.trim() : '';
+      const mileOut = mileOutEl ? mileOutEl.value.trim() : '';
+      if (mileIn === '' || mileOut === '') {
+        errors.push('Mileage In and Mileage Out are required.');
+      } else {
+        const mi = Number(mileIn), mo = Number(mileOut);
+        if (isNaN(mi) || isNaN(mo)) errors.push('Mileage In and Out must be valid numbers.');
+        else {
+          if (mi < 0 || mo < 0) errors.push('Mileage cannot be negative.');
+          if (mo < mi) errors.push('Mileage Out cannot be less than Mileage In.');
+        }
+      }
+
+      const diagnosis = diagnosisEl ? diagnosisEl.value.trim() : '';
+      if (!diagnosis) errors.push('Diagnosis is required. Put N/A if none.');
+
+      if (taxEl) {
+        const t = taxEl.value.trim();
+        if (t !== '' && (isNaN(parseFloat(t)) || parseFloat(t) < 0)) errors.push('Tax must be a non-negative number.');
+      }
+      if (totEstimateEl) {
+        const tt = totEstimateEl.value.trim();
+        if (tt !== '' && (isNaN(parseFloat(tt)) || parseFloat(tt) < 0)) errors.push('Total Estimate must be a non-negative number.');
+      }
+
+      if (!signatureData || !signatureData.value) errors.push('Customer signature is required.');
+
+      // recommended repairs table validation
+      const repairsTable = document.getElementById('repairs-table');
+      if (repairsTable) {
+        const rows = Array.from(repairsTable.querySelectorAll('tbody tr'));
+        rows.forEach((r, idx) => {
+          const desc = r.querySelector('.rp-desc')?.value.trim() || '';
+          const qty = r.querySelector('.rp-qty')?.value.trim() || '';
+          const partPrice = r.querySelector('.rp-partprice')?.value.trim() || '';
+          const laborHours = r.querySelector('.rp-laborhours')?.value.trim() || '';
+          if (!desc && !qty && !partPrice && !laborHours) return;
+          if (qty === '') errors.push(`Row ${idx+1}: Qty is required when adding a repair line.`);
+          else {
+            const qn = Number(qty);
+            if (!Number.isInteger(qn) || qn < 0) errors.push(`Row ${idx+1}: Qty must be a non-negative integer.`);
+          }
+          if (partPrice !== '' && (isNaN(parseFloat(partPrice)) || parseFloat(partPrice) < 0)) errors.push(`Row ${idx+1}: Part Price must be a non-negative number.`);
+          if (laborHours !== '' && (isNaN(parseFloat(laborHours)) || parseFloat(laborHours) < 0)) errors.push(`Row ${idx+1}: Labor Hours must be a non-negative number.`);
+        });
+      }
+
+      if (errors.length > 0) {
+        showErrors(errors);
+        return false;
+      }
+
+      // all good -> submit
+      form.submit();
+      return true;
+    }
+
+    form.addEventListener('submit', validateAndSubmit);
+  })();
+
+  // --- small helper: wire section Save buttons to submit closest form or trigger partial save ---
+  (function wireSectionSaves() {
+    document.querySelectorAll('.section-save').forEach(btn => {
+      btn.addEventListener('click', function () {
+        // find nearest form inside this accordion content; if none, fallback to main form
+        const section = btn.closest('.accordion-content') || btn.closest('.section');
+        const form = section ? section.querySelector('form') : null;
+        if (form) form.requestSubmit();
+        else {
+          // fallback: submit main repForm
+          const main = document.getElementById('repForm');
+          if (main) main.requestSubmit();
+        }
+      });
+    });
+  })();
+
 });

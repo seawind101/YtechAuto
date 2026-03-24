@@ -162,7 +162,42 @@ document.addEventListener('DOMContentLoaded', function () {
       [1,3,5].forEach(idx => {
         const el = inputs[idx];
         if (!el) return;
-        el.addEventListener('input', () => calculateRow(row));
+
+        // sanitize input: remove any minus signs typed or pasted
+        function sanitizeValue() {
+          if (el.value && el.value.includes('-')) {
+            el.value = el.value.replace(/-/g, '');
+          }
+        }
+
+        // prevent typing '-' or NumpadSubtract
+        el.addEventListener('keydown', (e) => {
+          if (e.key === '-' || e.key === 'Subtract' || e.key === '\u2212') {
+            e.preventDefault();
+          }
+        });
+
+        // sanitize paste (strip minus signs)
+        el.addEventListener('paste', (e) => {
+          try {
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            if (text && text.indexOf('-') !== -1) {
+              e.preventDefault();
+              const sanitized = text.replace(/-/g, '');
+              // insert sanitized text
+              const selStart = el.selectionStart || 0;
+              const selEnd = el.selectionEnd || 0;
+              const newVal = el.value.slice(0, selStart) + sanitized + el.value.slice(selEnd);
+              el.value = newVal;
+            }
+          } catch (err) { /* ignore */ }
+        });
+
+        // on input sanitize and recalc
+        el.addEventListener('input', () => {
+          sanitizeValue();
+          calculateRow(row);
+        });
       });
     }
 

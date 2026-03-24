@@ -200,5 +200,66 @@ document.addEventListener('DOMContentLoaded', function () {
       if (el) el.addEventListener('change', computeTotalTime);
     });
   });
+
+  // --- Signature canvas setup ---
+  (function setupSignature() {
+    const canvas = document.getElementById('signatureCanvas');
+    const signatureData = document.getElementById('signatureData');
+    const clearBtn = document.getElementById('clearSignature');
+    if (!canvas || !signatureData) return;
+
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let hasSignature = false;
+    let lastX = 0, lastY = 0;
+
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // pointer events (works for mouse and touch)
+    canvas.addEventListener('pointerdown', function (e) {
+      canvas.setPointerCapture(e.pointerId);
+      isDrawing = true;
+      hasSignature = true;
+      const rect = canvas.getBoundingClientRect();
+      lastX = e.clientX - rect.left;
+      lastY = e.clientY - rect.top;
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+    });
+
+    canvas.addEventListener('pointermove', function (e) {
+      if (!isDrawing) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      lastX = x; lastY = y;
+    });
+
+    function endDraw(e) {
+      if (!isDrawing) return;
+      isDrawing = false;
+      try { canvas.releasePointerCapture && canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+      // save to hidden input
+      try { signatureData.value = canvas.toDataURL('image/png'); } catch (err) { /* ignore */ }
+    }
+
+    canvas.addEventListener('pointerup', endDraw);
+    canvas.addEventListener('pointercancel', endDraw);
+    canvas.addEventListener('pointerout', endDraw);
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        hasSignature = false;
+        signatureData.value = '';
+        console.log('Signature cleared');
+      });
+    }
+  })();
   form.addEventListener('submit', validateAndSubmit);
 });

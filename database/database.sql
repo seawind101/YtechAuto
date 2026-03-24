@@ -38,3 +38,4 @@ CREATE TABLE recRepairs (
     laborHours REAL NOT NULL,
     laborTotal REAL NOT NULL
 );
+

@@ -56,8 +56,8 @@
     });
   }
 
-  // Save Ticket, Add Repair Line, Upload - no-op (mockup)
-  document.querySelectorAll('.save-ticket, .add-repair-line, #upload-btn').forEach(function (btn) {
+  // Save Ticket and Upload - no-op (mockup). Do NOT intercept add-repair-line so real handler can run.
+  document.querySelectorAll('.save-ticket, #upload-btn').forEach(function (btn) {
     if (btn) {
       btn.addEventListener('click', function (e) {
         e.preventDefault();

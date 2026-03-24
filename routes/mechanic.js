@@ -29,10 +29,6 @@ router.post('/mechanic', (req, res) => {
     let mileOut = req.body.mileOut;
     let concern = req.body.concern;
     let diagnosis = req.body.diagnosis;
-    let subTotParts = req.body.subTotParts;
-    let subTotLabor = req.body.subTotLabor;
-    let tax = req.body.tax;
-    let totEstimate = req.body.totEstimate;
     let sDate = req.body.sDate;
     let signature = req.body.signature;
    

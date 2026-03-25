@@ -47,11 +47,6 @@ router.post('/mechanic', (req, res) => {
     let custAdd = req.body.custAddress;
     let custPhone = req.body.custPhone;
     let custEmail = req.body.custEmail;
-    let vehicleymm = req.body.vehicleymm;
-    let vin = req.body.vin;  
-    let licensePlate= req.body.licensePlate;
-    let mileArrvive = req.body.mileIn;
-    let mileOut = req.body.mileOut;
     let concern = req.body.concern;
     let diagnosis = req.body.diagnosis;
     let sDate = req.body.sDate;
@@ -67,17 +62,45 @@ router.post('/mechanic', (req, res) => {
     console.log('Customer Address:', custAdd);
     console.log('Customer Phone:', custPhone);
     console.log('Customer Email:', custEmail);
-    console.log('Vehicle YMM:', vehicleymm);
-    console.log('VIN:', vin);
-    console.log('License Plate:', licensePlate);
-    console.log('Mileage In:', mileArrvive);
-    console.log('Mileage Out:', mileOut);
     console.log('Concern:', concern);
     console.log('Diagnosis:', diagnosis);
     console.log('Signature Date:', sDate);
-    console.log('Signature:', signature);
     res.redirect('/mechanic');
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 router.post('/upload-video', upload.single('video'), (req, res) => {
     try {

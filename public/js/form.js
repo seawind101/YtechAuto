@@ -85,6 +85,82 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   })();
 
+  // --- Customer phone input: only digits, auto-insert dashes XXX-XXX-XXXX ---
+  (function initPhoneFormatting() {
+    const el = document.getElementById('custPhone');
+    if (!el) return;
+
+    function onlyDigits(s) { return (s || '').replace(/\D/g, ''); }
+    function formatPhone(digits) {
+      const d = digits.slice(0, 10);
+      if (d.length <= 3) return d;
+      if (d.length <= 6) return d.slice(0,3) + '-' + d.slice(3);
+      return d.slice(0,3) + '-' + d.slice(3,6) + '-' + d.slice(6);
+    }
+
+    function digitsBeforeCursor(value, cursorPos) {
+      return (value.slice(0, cursorPos).match(/\d/g) || []).length;
+    }
+
+    function cursorPosFromDigits(formatted, digitsCount) {
+      if (digitsCount <= 0) return 0;
+      let seen = 0;
+      for (let i = 0; i < formatted.length; i++) {
+        if (/[0-9]/.test(formatted[i])) {
+          seen++;
+          if (seen === digitsCount) return i + 1;
+        }
+      }
+      return formatted.length;
+    }
+
+    el.addEventListener('keydown', function (e) {
+      // allow control keys, navigation, backspace/delete
+      const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
+      if (allowed.includes(e.key)) return;
+      // allow Ctrl/Cmd combos
+      if (e.ctrlKey || e.metaKey) return;
+      // allow digits
+      if (/^[0-9]$/.test(e.key)) return;
+      // otherwise prevent
+      e.preventDefault();
+    });
+
+    el.addEventListener('paste', function (ev) {
+      ev.preventDefault();
+      const text = (ev.clipboardData || window.clipboardData).getData('text') || '';
+      const digits = onlyDigits(text);
+      const currentDigits = onlyDigits(el.value);
+      // insert pasted digits at cursor position
+      const selStart = el.selectionStart || 0;
+      const selEnd = el.selectionEnd || 0;
+      const before = onlyDigits(el.value.slice(0, selStart));
+      const after = onlyDigits(el.value.slice(selEnd));
+      const newDigits = (before + digits + after).slice(0, 10);
+      const formatted = formatPhone(newDigits);
+      el.value = formatted;
+      const cursor = cursorPosFromDigits(formatted, before.length + digits.length);
+      try { el.setSelectionRange(cursor, cursor); } catch (e) {}
+    });
+
+    el.addEventListener('input', function (e) {
+      const orig = el.value || '';
+      const sel = el.selectionStart || 0;
+      const digitsBefore = digitsBeforeCursor(orig, sel);
+      const digits = onlyDigits(orig).slice(0,10);
+      const formatted = formatPhone(digits);
+      el.value = formatted;
+      const newPos = cursorPosFromDigits(formatted, digitsBefore);
+      try { el.setSelectionRange(newPos, newPos); } catch (err) {}
+    });
+
+    // ensure format on blur
+    el.addEventListener('blur', function () {
+      const digits = onlyDigits(el.value).slice(0,10);
+      el.value = formatPhone(digits);
+    });
+  })();
+
   // --- Video upload (keeps previous upload flow intact) ---
   (function setupVideoUpload() {
     const uploadZone = document.getElementById('video-upload-zone');
@@ -485,8 +561,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const timeOutEl = document.getElementById('timeOut');
       const custNameEl = document.getElementById('custName');
       const custAddressEl = document.getElementById('custAddress');
-      const mileInEl = document.getElementById('mileIn');
-      const mileOutEl = document.getElementById('mileOut');
       const diagnosisEl = document.getElementById('diagnosis');
       const taxEl = document.getElementById('tax');
       const totEstimateEl = document.getElementById('totEstimate');
@@ -512,19 +586,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const custAddress = custAddressEl ? custAddressEl.value.trim() : '';
       if (!custAddress) errors.push('Customer address is required.');
 
-      // mileage
-      const mileIn = mileInEl ? mileInEl.value.trim() : '';
-      const mileOut = mileOutEl ? mileOutEl.value.trim() : '';
-      if (mileIn === '' || mileOut === '') {
-        errors.push('Mileage In and Mileage Out are required.');
-      } else {
-        const mi = Number(mileIn), mo = Number(mileOut);
-        if (isNaN(mi) || isNaN(mo)) errors.push('Mileage In and Out must be valid numbers.');
-        else {
-          if (mi < 0 || mo < 0) errors.push('Mileage cannot be negative.');
-          if (mo < mi) errors.push('Mileage Out cannot be less than Mileage In.');
-        }
-      }
+      // (mileage validation removed)
 
       const diagnosis = diagnosisEl ? diagnosisEl.value.trim() : '';
       if (!diagnosis) errors.push('Diagnosis is required. Put N/A if none.');

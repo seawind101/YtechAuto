@@ -85,6 +85,85 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   })();
 
+  // --- Video upload (keeps previous upload flow intact) ---
+  (function setupVideoUpload() {
+    const uploadZone = document.getElementById('video-upload-zone');
+    const videoFileInput = document.getElementById('video-file');
+    const uploadTrigger = document.getElementById('upload-trigger');
+    const uploadBtn = document.getElementById('upload-btn');
+    if (!uploadZone || !videoFileInput || !uploadBtn) return;
+
+    let selectedFile = null;
+
+    // clicking the choose button opens file picker
+    if (uploadTrigger) {
+      uploadTrigger.addEventListener('click', function (e) {
+        e.preventDefault();
+        videoFileInput.click();
+      });
+    }
+
+    // clicking the zone also opens picker (mockup behavior)
+    uploadZone.addEventListener('click', function (e) {
+      if (e.target !== uploadTrigger && e.target !== uploadBtn) videoFileInput.click();
+    });
+
+    // when a file is selected
+    videoFileInput.addEventListener('change', function (e) {
+      selectedFile = e.target.files[0];
+      const p = uploadZone.querySelector('p');
+      if (selectedFile) {
+        if (p) p.textContent = `Selected: ${selectedFile.name}`;
+        uploadBtn.disabled = false;
+        uploadBtn.style.opacity = '1';
+      } else {
+        if (p) p.textContent = 'Drop video here or click to upload';
+        uploadBtn.disabled = true;
+      }
+    });
+
+    // upload to server
+    uploadBtn.addEventListener('click', function () {
+      if (!selectedFile) {
+        alert('Please select a video file first.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('video', selectedFile);
+
+      uploadBtn.textContent = 'Uploading...';
+      uploadBtn.disabled = true;
+
+      fetch('/upload-video', {
+        method: 'POST',
+        body: formData
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.success) {
+            alert('Video uploaded successfully!');
+            const p = uploadZone.querySelector('p');
+            if (p) p.textContent = 'Video uploaded successfully!';
+            uploadZone.style.backgroundColor = '#d4edda';
+            uploadZone.style.borderColor = '#c3e6cb';
+            // clear selection
+            videoFileInput.value = '';
+            selectedFile = null;
+          } else {
+            alert('Upload failed: ' + (data && data.message ? data.message : 'Unknown'));
+          }
+        })
+        .catch(err => {
+          console.error('Upload error:', err);
+          alert('Upload failed. Please try again.');
+        })
+        .finally(() => {
+          uploadBtn.textContent = 'Upload';
+          uploadBtn.disabled = false;
+        });
+    });
+  })();
+
   // --- Recommended Repairs: row wiring, calc, add/remove, block '-' input ---
   (function initRepairs() {
     const table = document.getElementById('repairs-table');
@@ -234,13 +313,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const tbody = table.querySelector('tbody');
         const newRow = document.createElement('tr');
         newRow.innerHTML = `
-          <td><input type="text" class="rp-desc" /></td>
-          <td><input type="number" min="0" class="rp-qty" /></td>
-          <td><input type="text" class="rp-um" /></td>
-          <td><input type="number" min="0" step="0.01" class="rp-partprice" /></td>
-          <td><input type="text" class="rp-partstotal" /></td>
-          <td><input type="number" min="0" step="0.01" class="rp-laborhours" /></td>
-          <td><input type="text" class="rp-labortotal" /></td>
+          <td><input type="text" class="rp-desc" placeholder="Description"></td>
+          <td><input type="number" min="0" class="rp-qty" placeholder="1" style="width:4em"></td>
+          <td><input type="text" class="rp-um" placeholder="Part #"></td>
+          <td><input type="number" min="0" step="0.01" class="rp-partprice" placeholder="0.00"></td>
+          <td><input type="text" class="rp-partstotal" placeholder="0.00" readonly tabindex="-1" aria-readonly="true"></td>
+          <td><input type="number" min="0" step="0.01" class="rp-laborhours" placeholder="0.00"></td>
+          <td><input type="text" class="rp-labortotal" placeholder="0.00" readonly tabindex="-1" aria-readonly="true"></td>
           <td><button type="button" class="remove-repair-line">Remove</button></td>
         `;
         tbody.appendChild(newRow);
@@ -277,100 +356,15 @@ document.addEventListener('DOMContentLoaded', function () {
         ampm.add(new Option('AM/PM', ''));
         ['AM','PM'].forEach(x => ampm.add(new Option(x, x)));
       });
-  populateTimePickers();
-
-// Video upload functionality
-(function setupVideoUpload() {
-    const uploadZone = document.getElementById('video-upload-zone');
-    const videoFileInput = document.getElementById('video-file');
-    const uploadTrigger = document.getElementById('upload-trigger');
-    const uploadBtn = document.getElementById('upload-btn');
-    
-    if (!uploadZone || !videoFileInput || !uploadBtn) return;
-    
-    let selectedFile = null;
-
-    if (uploadTrigger) {
-        uploadTrigger.addEventListener('click', function(e) {
-            e.preventDefault();
-            videoFileInput.click();
-        });
-    }
-    // File selection handling
-    videoFileInput.addEventListener('change', function(e) {
-        selectedFile = e.target.files[0];
-        if (selectedFile) {
-            uploadZone.querySelector('p').textContent = `Selected: ${selectedFile.name}`;
-            uploadBtn.disabled = false;
-            uploadBtn.style.opacity = '1';
-        }
-    });
-    
-    // Upload button click
-    uploadBtn.addEventListener('click', function() {
-        if (!selectedFile) {
-            alert('Please select a video file first.');
-            return;
-        }
-        
-        const formData = new FormData();
-        formData.append('video', selectedFile);
-      
-        uploadBtn.textContent = 'Uploading...';
-        uploadBtn.disabled = true;
-        
-        fetch('/upload-video', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Video uploaded successfully!');
-                uploadZone.querySelector('p').textContent = 'Video uploaded successfully!';
-                uploadZone.style.backgroundColor = '#d4edda';
-                uploadZone.style.borderColor = '#c3e6cb';
-            } else {
-                alert('Upload failed: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Upload error:', error);
-            alert('Upload failed. Please try again.');
-        })
-        .finally(() => {
-            uploadBtn.textContent = 'Upload';
-            uploadBtn.disabled = false;
-        });
-    });
-    })();
-
-  // compute total time (hours) from composite pickers and write to #totTime
-  function computeTotalTime() {
-    const inHour = document.getElementById('timeInHour').value;
-    const inMin = document.getElementById('timeInMinute').value;
-    const inAmPm = document.getElementById('timeInAmPm').value;
-    const outHour = document.getElementById('timeOutHour').value;
-    const outMin = document.getElementById('timeOutMinute').value;
-    const outAmPm = document.getElementById('timeOutAmPm').value;
-    const totTimeField = document.getElementById('totTime');
-    const hiddenIn = document.getElementById('timeIn');
-    const hiddenOut = document.getElementById('timeOut');
-
-    if (!inHour || !inMin || !inAmPm || !outHour || !outMin || !outAmPm) {
-      if (totTimeField) totTimeField.value = '';
-      if (hiddenIn) hiddenIn.value = '';
-      if (hiddenOut) hiddenOut.value = '';
-      return;
     }
 
     function computeTotalTime() {
-      const inHour = document.getElementById('timeInHour').value;
-      const inMin = document.getElementById('timeInMinute').value;
-      const inAmPm = document.getElementById('timeInAmPm').value;
-      const outHour = document.getElementById('timeOutHour').value;
-      const outMin = document.getElementById('timeOutMinute').value;
-      const outAmPm = document.getElementById('timeOutAmPm').value;
+      const inHour = document.getElementById('timeInHour')?.value;
+      const inMin = document.getElementById('timeInMinute')?.value;
+      const inAmPm = document.getElementById('timeInAmPm')?.value;
+      const outHour = document.getElementById('timeOutHour')?.value;
+      const outMin = document.getElementById('timeOutMinute')?.value;
+      const outAmPm = document.getElementById('timeOutAmPm')?.value;
       const totTimeField = document.getElementById('totTime');
       const hiddenIn = document.getElementById('timeIn');
       const hiddenOut = document.getElementById('timeOut');
@@ -398,9 +392,12 @@ document.addEventListener('DOMContentLoaded', function () {
       let tIn = timeToMinutes(inStr);
       let tOut = timeToMinutes(outStr);
       if (tOut <= tIn) tOut += 24 * 60; // cross-midnight
-      const diff = tOut - tIn;
+      const diff = tOut - tIn; // minutes
       const decimalHours = diff / 60;
-      if (totTimeField) totTimeField.value = decimalHours.toFixed(2);
+      const hh = Math.floor(diff / 60);
+      const mm = diff % 60;
+      const mmPad = String(mm).padStart(2, '0');
+      if (totTimeField) totTimeField.value = `${decimalHours.toFixed(2)} (${hh}:${mmPad})`;
     }
 
     populateTimePickers();
@@ -410,6 +407,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (el) el.addEventListener('change', computeTotalTime);
       });
     });
+
+    // initialize once
+    computeTotalTime();
   })();
 
   // --- Signature canvas setup ---

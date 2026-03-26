@@ -240,6 +240,110 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   })();
 
+    // --- Image upload (click/drag-preview + upload) ---
+    (function setupImageUpload() {
+      const zone = document.getElementById('image-upload-zone');
+      const fileInput = document.getElementById('image-file');
+      const trigger = document.getElementById('image-upload-trigger');
+      const uploadBtn = document.getElementById('image-upload-btn');
+      const previewEl = document.getElementById('image-preview'); // optional <img> or container
+      if (!zone || !fileInput || !uploadBtn) return;
+
+      let selectedImage = null;
+      const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+
+      function showPreview(file) {
+        if (!previewEl) return;
+        // if previewEl is an <img>, set src; otherwise create/replace an img inside
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          if (previewEl.tagName && previewEl.tagName.toLowerCase() === 'img') {
+            previewEl.src = e.target.result;
+          } else {
+            previewEl.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.style.maxWidth = '160px';
+            img.style.maxHeight = '120px';
+            img.alt = 'Selected image preview';
+            previewEl.appendChild(img);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+
+      // clicking trigger opens picker
+      if (trigger) {
+        trigger.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
+      }
+
+      // click on zone opens picker (but avoid clicking the upload button)
+      zone.addEventListener('click', function (e) {
+        if (e.target !== trigger && e.target !== uploadBtn) fileInput.click();
+      });
+
+      // dragover/drop support
+      zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', function (e) { e.preventDefault(); zone.classList.remove('dragover'); });
+      zone.addEventListener('drop', function (e) {
+        e.preventDefault(); zone.classList.remove('dragover');
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) {
+          fileInput.files = e.dataTransfer.files; // update input
+          handleFileChosen(f);
+        }
+      });
+
+      fileInput.addEventListener('change', function (e) {
+        const f = e.target.files && e.target.files[0];
+        if (f) handleFileChosen(f);
+      });
+
+      function handleFileChosen(f) {
+        if (!f) return;
+        if (!f.type.startsWith('image/')) {
+          alert('Please select an image file.');
+          fileInput.value = '';
+          selectedImage = null;
+          return;
+        }
+        if (f.size > MAX_BYTES) {
+          alert('Image is too large (max 5MB).');
+          fileInput.value = '';
+          selectedImage = null;
+          return;
+        }
+        selectedImage = f;
+        const p = zone.querySelector('p');
+        if (p) p.textContent = `Selected: ${f.name}`;
+        uploadBtn.disabled = false;
+        uploadBtn.style.opacity = '1';
+        showPreview(f);
+      }
+
+      uploadBtn.addEventListener('click', function () {
+        if (!selectedImage) { alert('Please select an image first.'); return; }
+        const fd = new FormData();
+        fd.append('image', selectedImage);
+        uploadBtn.textContent = 'Uploading...'; uploadBtn.disabled = true;
+        fetch('/upload-image', { method: 'POST', body: fd })
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.success) {
+              alert('Image uploaded successfully!');
+              const p = zone.querySelector('p'); if (p) p.textContent = 'Image uploaded successfully!';
+              zone.style.backgroundColor = '#d4edda'; zone.style.borderColor = '#c3e6cb';
+              fileInput.value = '';
+              selectedImage = null;
+            } else {
+              alert('Upload failed: ' + (data && data.message ? data.message : 'Unknown'));
+            }
+          })
+          .catch(err => { console.error('Image upload error:', err); alert('Upload failed.'); })
+          .finally(() => { uploadBtn.textContent = 'Upload'; uploadBtn.disabled = false; });
+      });
+    })();
+
   // --- Recommended Repairs: row wiring, calc, add/remove, block '-' input ---
   (function initRepairs() {
     const table = document.getElementById('repairs-table');

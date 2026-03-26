@@ -14,11 +14,6 @@ CREATE TABLE tickets (
     customerAddress TEXT NOT NULL,
     customerPhone TEXT NOT NULL,
     customerEmail TEXT NOT NULL,
-    vehicleYearMakeModel TEXT NOT NULL,
-    vehicleVin TEXT NOT NULL,
-    vehicleLicensePlate TEXT NOT NULL,
-    vehicleMileageIn TEXT NOT NULL,
-    vehicleMileageOut TEXT NOT NULL,
     concern TEXT NOT NULL,
     diagnosis TEXT NOT NULL,
     recommendedRepairs TEXT NOT NULL,
@@ -48,11 +43,11 @@ CREATE TABLE vechicleInfo (
     transType TEXT NOT NULL,
     currentMileage INTEGER NOT NULL,
     oldMileage INTEGER NOT NULL,
-    technicain TEXT NOT NULL,
     carDate TEXT NOT NULL,
     plate TEXT NOT NULL,
     carYear INTEGER NOT NULL
 );
+
 CREATE TABLE courtesy (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
@@ -60,6 +55,7 @@ CREATE TABLE courtesy (
     status TEXT NOT NULL,
     notes TEXT
 );
+
 CREATE TABLE tires (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,

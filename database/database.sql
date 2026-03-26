@@ -76,7 +76,8 @@ CREATE TABLE tires (
     alignmentNeeded TEXT NOT NULL,
     notes TEXT
 );
-CREATE TABLE steering&supension (
+
+CREATE TABLE steeringsupension (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
     item TEXT NOT NULL,
@@ -85,12 +86,15 @@ CREATE TABLE steering&supension (
     notes TEXT
 );
 
+CREATE TABLE signitures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticketID INTEGER NOT NULL,
 
-
+);
+-- "uploads/ filenamefromdb" + ".png"
 
 
 -- INSERT INTO courtesy (ticketID, partName, status, notes)
 -- VALUES
 -- (2, 'Brakes', 'Needs Service', 'Brake pads are worn.'),
--- (2, 'Engine', 'OK', ''),
 -- (2, 'Tires', 'Monitor Soon', 'Tread is wearing thin.');

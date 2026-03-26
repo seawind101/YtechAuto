@@ -469,11 +469,10 @@ document.addEventListener('DOMContentLoaded', function () {
       let tOut = timeToMinutes(outStr);
       if (tOut <= tIn) tOut += 24 * 60; // cross-midnight
       const diff = tOut - tIn; // minutes
-      const decimalHours = diff / 60;
       const hh = Math.floor(diff / 60);
       const mm = diff % 60;
       const mmPad = String(mm).padStart(2, '0');
-      if (totTimeField) totTimeField.value = `${decimalHours.toFixed(2)} (${hh}:${mmPad})`;
+      if (totTimeField) totTimeField.value = ` (${hh}:${mmPad})`;
     }
 
     populateTimePickers();

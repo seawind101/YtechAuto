@@ -75,6 +75,27 @@ body {
   gap: 1.5rem;
 }
 
+/* Mechanic dashboard: force three cards in a centered row on wide viewports */
+.mechanic-dashboard .role-cards {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 1.5rem;
+  flex-wrap: nowrap;
+}
+.mechanic-dashboard .role-card {
+  flex: 0 0 300px; /* fixed width for consistent boxes */
+}
+@media (max-width: 980px) {
+  /* fall back to stacked layout on narrow screens */
+  .mechanic-dashboard .role-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+  .mechanic-dashboard .role-card { flex: 1 1 auto; }
+}
+
 .role-card {
   display: block;
   padding: 2rem;
@@ -284,6 +305,49 @@ th {
 .video-download-link:hover {
   text-decoration: underline;
 }
+
+/* Image Upload Zone (Mock) */
+.image-upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  background: var(--content-bg);
+  color: var(--text-muted);
+}
+
+.image-upload-zone:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.image-upload-zone p {
+  margin: 0 0 1rem;
+}
+
+/* Video Player */
+.image-section {
+  margin-top: 1rem;
+}
+
+.image-section image {
+  width: 100%;
+  max-width: 640px;
+  border-radius: 8px;
+  background: #000;
+}
+
+.image-download-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.image-download-link:hover {
+  text-decoration: underline;
+}
+
 
 /* Accordion / Collapsible */
 .accordion-header {

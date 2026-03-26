@@ -394,12 +394,6 @@
                 </div>
                 <input type="hidden" name="tags" id="tags-hidden" value="">
               </div>
-
-              <!-- Comments field placed below Tags -->
-              <div class="form-group full-width">
-                <label>Comments</label>
-                <textarea name="emissionsComments" id="emissions-comments" placeholder="Additional notes or comments"></textarea>
-              </div>
               
             </div>
             <div class="form-group full-width"><label>Comments</label><input type="text" placeholder="Emissions / Electrical Lighting comments"></div>
@@ -421,15 +415,16 @@
       <button type="button" class="btn btn-primary" id="upload-btn" style="margin-top:1rem">Upload</button>
     </section>
 
-    <!-- Picture Upload Section -->
+    <!-- Image Upload Section (matches Video UI) -->
     <section class="section">
-      <h2>Upload Picture</h2>
-      <div class="picture-upload-zone" id="picture-upload-zone">
-        <p>Drop picture here or click to upload</p>
-        <input type="file" id="picture-file" accept="image/*" style="display:none">
-        <button type="button" class="btn btn-secondary" id="upload-trigger">Choose File</button>
+      <h2>Upload Image</h2>
+      <div class="image-upload-zone" id="image-upload-zone">
+        <p>Drop image here or click to upload</p>
+        <input type="file" id="image-file" accept="image/*" style="display:none">
+        <button type="button" class="btn btn-secondary" id="image-upload-trigger">Choose File</button>
       </div>
-      <button type="button" class="btn btn-primary" id="upload-btn" style="margin-top:1rem">Upload</button>
+      <div id="image-preview" style="margin-top:8px;"></div>
+      <button type="button" class="btn btn-primary" id="image-upload-btn" style="margin-top:1rem" disabled>Upload</button>
     </section>
   </main>
 </body>

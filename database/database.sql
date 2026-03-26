@@ -1,7 +1,7 @@
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL
+    email TEXT NOT NULL UNIQUE,
 );
 CREATE TABLE tickets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,7 +73,7 @@ CREATE TABLE tires (
     notes TEXT
 );
 
-CREATE TABLE steering&supension (
+CREATE TABLE steering_suspension (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
     item TEXT NOT NULL,

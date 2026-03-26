@@ -3,16 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mechanic Display</title>
+    <title>Mechanic Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <h1>Mechanic Display</h1>
-    <p>Show of current mechanic's completed tickets</p>
-    <div id="MdisplayBox">
+    <header class="site-header">
+        <h1>Mechanic Dashboard</h1>
+        <p class="tagline">Mechanic tools — create, edit and view completed tickets</p>
+    </header>
 
-    </div>
+        <main class="landing mechanic-dashboard">
+        <h2>Choose an action</h2>
+        <div class="role-cards">
+            <a href="/mechanic" class="role-card mechanic-card">
+                <span class="role-icon">&#128295;</span>
+                <h3>Create Ticket</h3>
+                <p>Open the Repair Order form to create a new ticket.</p>
+            </a>
+
+            <a href="/mechanicEdit" class="role-card edit-card">
+                <span class="role-icon">&#9998;</span>
+                <h3>Edit Ticket</h3>
+                <p>Search and edit existing tickets (mechanic edit view).</p>
+            </a>
+
+            <a href="/ticket" class="role-card ticket-card">
+                <span class="role-icon">&#128221;</span>
+                <h3>Completed Tickets</h3>
+                <p>View completed tickets and print or archive them.</p>
+            </a>
+        </div>
+    </main>
 </body>
-<script>
-
-</script>
 </html>

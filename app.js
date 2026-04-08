@@ -44,9 +44,10 @@ const mechanicRouter = require('./routes/mechanic');
 const customerRouter = require('./routes/customer');
 const customerDisRouter = require('./routes/customerDis');
 const mechanicDisRouter = require('./routes/mechanicDis');
-const authRouter = require('./routes/auth');
-const ticketRouter = require('./routes/ticket');
 const mechanicEditRouter = require('./routes/mechanicEdit');
+const ticketRoute = require('./routes/ticket');
+const authRouter = require('./routes/auth');
+
 
 app.use('/', indexRouter);
 app.use('/', mechanicRouter);
@@ -54,8 +55,9 @@ app.use('/', customerRouter);
 app.use('/', customerDisRouter);
 app.use('/', authRouter);
 app.use('/', mechanicDisRouter);
-app.use('/', ticketRouter);
-app.use('/', mechanicEditRouter);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+app.use('/', mechanicEditRouter);
+app.use('/', ticketRoute);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
 
 server.listen(PORT, () => {
     console.log(`Example app listening on port http://localhost:${PORT}`);

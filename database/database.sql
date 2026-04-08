@@ -36,8 +36,19 @@ CREATE TABLE recRepairs (
 CREATE TABLE vechicleInfo (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
-    item TEXT NOT NULL,
-    input TEXT NOT NULL
+    yearV TEXT NOT NULL,
+    make TEXT NOT NULL,
+    model TEXT NOT NULL,
+    Color TEXT NOT NULL,
+    vin TEXT NOT NULL
+    mfgDate TEXT NOT NULL,
+    engineSize TEXT NOT NULL,
+    transType TEXT NOT NULL,
+    mileageC TEXT NOT NULL,
+    mileageO TEXT NOT NULL
+    dateV TEXT NOT NULL,
+    plate TEXT NOT NULL,
+    comments TEXT
 );
 
 CREATE TABLE courtesyTable (

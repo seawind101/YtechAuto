@@ -117,10 +117,7 @@ CREATE TABLE emissions (
     ticketID INTEGER NOT NULL,
     item TEXT NOT NULL,
     input TEXT NOT NULL
-);
-
-
-
+)
 
 -- "uploads/ filenamefromdb" + ".png"
 

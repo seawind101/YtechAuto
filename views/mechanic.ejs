@@ -196,6 +196,7 @@
         <span class="status-badge status-red">Red - Needs Service</span>
         <span class="status-badge status-yellow">Yellow - Monitor Soon</span>
         <span class="status-badge status-green">Green - OK</span>
+        <span class="status-badge status-gray">Gray - N/A</span>
       </p>
 
       <div class="accordion">
@@ -211,7 +212,7 @@
                 <div class="form-group"><label>VIN</label><input type="text" placeholder="VIN"></div>
                 <div class="form-group"><label>MFG Date</label><input type="text" placeholder="MFG Date"></div>
                 <div class="form-group"><label>Engine Size</label><input type="text" placeholder="Engine Size"></div>
-                <div class="form-group"><label>Trans Type</label><select><option>Auto</option><option>Manual</option></select></div>
+                <div class="form-group"><label>Trans Type</label><select><option>Auto</option><option>Manual</option><option>N/A</option></select></div>
                 <div class="form-group"><label>Mileage (Current)</label><input type="text" placeholder="Mileage"></div>
                 <div class="form-group"><label>Mileage (Old)</label><input type="text" placeholder="Mileage"></div>
                 <div class="form-group"><label>Date</label><input type="date"></div>
@@ -224,45 +225,141 @@
         </div>
 
         <div class="accordion-item">
-          <div class="accordion-header" data-accordion="courtesy-check">Courtesy Check</div>
-          <div class="accordion-content collapsed-content" id="courtesy-check">
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr><th>Item</th><th>Status</th><th>Notes</th></tr>
-                </thead>
-                <tbody>
-                  <tr><td>Wiper Blades</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Headlights</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Mini/Marker Lights</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Air Filter</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Cabin Air Filter</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>PCV Valve</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Fuel Filter</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Drive Belts</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Hoses</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Battery/Cables</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Accessory Belt</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Washer Fluid</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Engine Oil Level</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Coolant Level</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Brake Fluid</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Spark Plugs</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Oxygen Sensor</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Oil Change Due</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Timing Belt</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Brake Lights</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Turn Signals</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  <tr><td>Parking Lights</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                  </tbody>
-              </table>
-            </div>
+  <div class="accordion-header" data-accordion="courtesy-check">Courtesy Check</div>
+  <div class="accordion-content collapsed-content" id="courtesy-check">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Wiper Blades</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Headlights</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Mini/Marker Lights</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Air Filter</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Cabin Air Filter</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>PCV Valve</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Fuel Filter</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Drive Belts</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Hoses</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Battery/Cables</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Accessory Belt</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Washer Fluid</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Engine Oil Level</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Coolant Level</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Brake Fluid</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Spark Plugs</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Oxygen Sensor</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Oil Change Due</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Timing Belt</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Brake Lights</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Turn Signals</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+          <tr>
+            <td>Parking Lights</td>
+            <td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td>
+            <td><input type="text" placeholder="Notes"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-            <div class="form-group full-width"><label>Comments</label><input type="text" placeholder="Comments"></div>
+    <div class="form-group full-width">
+      <label>Comments</label>
+      <input type="text" placeholder="Comments">
+    </div>
 
-            <button type="button" class="section-save btn btn-secondary" data-section="courtesy-check" style="margin-top:8px">Save</button>
-          </div>
-        </div>
+    <button type="button" class="section-save btn btn-secondary" data-section="courtesy-check" style="margin-top:8px">Save</button>
+  </div>
+</div>
+
 
         <div class="accordion-item">
           <div class="accordion-header" data-accordion="tires">Tires</div>
@@ -286,41 +383,159 @@
         </div>
 
         <div class="accordion-item">
-          <div class="accordion-header" data-accordion="steering">Steering & Suspension / Driveline</div>
-          <div class="accordion-content collapsed-content" id="steering">
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr><th>Item</th><th>Left</th><th>Right</th><th>Front</th><th>Rear</th></tr>
-                </thead>
-                <tbody>
-                  <tr><td>U-joint</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Idler Arm</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Pitman Arm</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Center Link</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Upper Control Arm Bushings</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Lower Control Arm Bushings</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Stabilizer Bar</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Stabilizer Bushing</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Ball Joints (Upper)</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Ball Joints (Lower)</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Rack & Pinion / Gearbox</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Tie Rod Ends (Inner)</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Tie Rod Ends (Outer)</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>CV Boots</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>CV Joints</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Shocks</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Struts</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                  <tr><td>Differential Fluid</td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td><td><select><option>OK</option><option>Monitor</option><option>Replace</option></select></td>
-                </tbody>
-              </table>
-            </div>
+  <div class="accordion-header" data-accordion="steering">Steering & Suspension / Driveline</div>
+  <div class="accordion-content collapsed-content" id="steering">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Left</th>
+            <th>Right</th>
+            <th>Front</th>
+            <th>Rear</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>U-joint</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Idler Arm</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Pitman Arm</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Center Link</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Upper Control Arm Bushings</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Lower Control Arm Bushings</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Stabilizer Bar</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Stabilizer Bushing</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Ball Joints (Upper)</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Ball Joints (Lower)</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Rack & Pinion / Gearbox</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Tie Rod Ends (Inner)</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Tie Rod Ends (Outer)</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>CV Boots</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>CV Joints</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Shocks</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Struts</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+          <tr>
+            <td>Differential Fluid</td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+            <td><select><option>OK</option><option>Monitor</option><option>Replace</option><option>N/A</option></select></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-            <div class="form-group full-width"><label>Comments</label><input type="text" placeholder="Steering & Suspension comments"></div>
+    <div class="form-group full-width">
+      <label>Comments</label>
+      <input type="text" placeholder="Steering & Suspension comments">
+    </div>
 
-            <button type="button" class="section-save btn btn-secondary" data-section="steering" style="margin-top:8px">Save</button>
-          </div>
-        </div>
+    <button type="button" class="section-save btn btn-secondary" data-section="steering" style="margin-top:8px">Save</button>
+  </div>
+</div>
+
 
         <div class="accordion-item">
           <div class="accordion-header" data-accordion="brakes">Brakes (Visual Inspection)</div>
@@ -342,10 +557,10 @@
                   <tr><td>Rotor/Drum RL (Thickness/Max Dia.)</td><td><input type="text" placeholder="Spec"></td><td><input type="text" placeholder="Actual"></td></tr>
                   <tr><td>Rotor/Drum RR (Thickness/Max Dia.)</td><td><input type="text" placeholder="Spec"></td><td><input type="text" placeholder="Actual"></td></tr>
 
-                  <tr><td>Wheel Bearings FL</td><td><select><option>OK</option><option>Replace</option></select></td><td>-</td></tr>
-                  <tr><td>Wheel Bearings FR</td><td><select><option>OK</option><option>Replace</option></select></td><td>-</td></tr>
-                  <tr><td>Wheel Bearings RL</td><td><select><option>OK</option><option>Replace</option></select></td><td>-</td></tr>
-                  <tr><td>Wheel Bearings RR</td><td><select><option>OK</option><option>Replace</option></select></td><td>-</td></tr>
+                  <tr><td>Wheel Bearings FL</td><td><select><option>OK</option><option>Replace</option><option>N/A</option></select></td><td>-</td></tr>
+                  <tr><td>Wheel Bearings FR</td><td><select><option>OK</option><option>Replace</option><option>N/A</option></select></td><td>-</td></tr>
+                  <tr><td>Wheel Bearings RL</td><td><select><option>OK</option><option>Replace</option><option>N/A</option></select></td><td>-</td></tr>
+                  <tr><td>Wheel Bearings RR</td><td><select><option>OK</option><option>Replace</option><option>N/A</option></select></td><td>-</td></tr>
 
                 </tbody>
               </table>
@@ -367,10 +582,10 @@
                 <tr><th>Item</th><th>Status</th><th>Notes</th></tr>
               </thead>
               <tbody>
-                <tr><td>Converter</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                <tr><td>Clamps</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                <tr><td>Hangers</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                <tr><td>Leaks</td><td><select><option>Red</option><option>Yellow</option><option>Green</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
+                <tr><td>Converter</td><td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
+                <tr><td>Clamps</td><td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
+                <tr><td>Hangers</td><td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
+                <tr><td>Leaks</td><td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
                 </tbody>
               </table>
             </div>

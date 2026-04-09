@@ -18,8 +18,7 @@ CREATE TABLE tickets (
     concern TEXT NOT NULL,
     diagnosis TEXT NOT NULL,
     recommendedRepairs TEXT NOT NULL,
-    dateSigned TEXT NOT NULL,
-    customerSignature TEXT NOT NULL
+    dateSigned TEXT NOT NULL
 );
 
 CREATE TABLE recRepairs (
@@ -37,13 +36,31 @@ CREATE TABLE recRepairs (
 CREATE TABLE vechicleInfo (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
-    item TEXT NOT NULL,
-    input TEXT NOT NULL
+    yearV TEXT NOT NULL,
+    make TEXT NOT NULL,
+    model TEXT NOT NULL,
+    Color TEXT NOT NULL,
+    vin TEXT NOT NULL
+    mfgDate TEXT NOT NULL,
+    engineSize TEXT NOT NULL,
+    transType TEXT NOT NULL,
+    mileageC TEXT NOT NULL,
+    mileageO TEXT NOT NULL
+    dateV TEXT NOT NULL,
+    plate TEXT NOT NULL,
+    comments TEXT
 );
 
 CREATE TABLE courtesyTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
+    item TEXT NOT NULL,
+    comments TEXT
+);
+
+CREATE TABLE courtesyTableItems (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tableID INTEGER NOT NULL,
     item TEXT NOT NULL,
     status TEXT NOT NULL,
     notes TEXT
@@ -52,8 +69,18 @@ CREATE TABLE courtesyTable (
 CREATE TABLE tires (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
-    item TEXT NOT NULL,
-    input TEXT NOT NULL
+    size TEXT NOT NULL,
+    speedRating TEXT NOT NULL,
+    LF TEXT NOT NULL,
+    RF TEXT NOT NULL,
+    LR TEXT NOT NULL,
+    RR TEXT NOT NULL,
+    SP TEXT NOT NULL,
+    treadDepth32 TEXT NOT NULL,
+    rotationDue TEXT NOT NULL,
+    balance TEXT NOT NULL,
+    alignment TEXT NOT NULL,
+    comments TEXT
 );
 
 CREATE TABLE steeringSupensionTable (
@@ -63,8 +90,7 @@ CREATE TABLE steeringSupensionTable (
     left TEXT,
     right TEXT,
     front TEXT,
-    rear TEXT,
-    notes TEXT
+    rear TEXT
 );
 
 CREATE TABLE brakesTable (
@@ -74,7 +100,7 @@ CREATE TABLE brakesTable (
     Spec TEXT NOT NULL,
     actual TEXT NOT NULL,
     status TEXT,
-    notes TEXT
+    comments TEXT
 );
 
 CREATE TABLE emissionsTable (
@@ -88,9 +114,21 @@ CREATE TABLE emissionsTable (
 CREATE TABLE emissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
-    item TEXT NOT NULL,
-    input TEXT NOT NULL
+    OBD TEXT NOT NULL,
+    inspections TEXT NOT NULL,
+    emissionsDue TEXT NOT NULL,
+    nextOilChange TEXT NOT NULL,
+    inspectedBy TEXT NOT NULL,
+    reInspectedBy TEXT NOT NULL,
+    warnings TEXT NOT NULL,
+    comments TEXT
 )
+
+CREATE TABLE warningsTable (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticketID INTEGER NOT NULL,
+    item TEXT NOT NULL,
+);
 
 -- "uploads/ filenamefromdb" + ".png"
 

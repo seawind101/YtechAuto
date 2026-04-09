@@ -738,6 +738,41 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', validateAndSubmit);
   })();
 
+  // --- Brake pads/rotors color coding based on thickness ---
+  (function initBrakeColorCoding() {
+    const brakesSection = document.getElementById('brakes');
+    if (!brakesSection) return;
+
+    const brakesTable = brakesSection.querySelector('table');
+    if (!brakesTable) return;
+
+    // Get all select elements in the brakes table
+    const selects = brakesTable.querySelectorAll('select');
+
+    function updateSelectColor(select) {
+      const value = parseInt(select.value, 10);
+      let bgColor = '';
+
+      if (value >= 1 && value <= 2) {
+        bgColor = '#ffcccc'; // light red
+      } else if (value >= 3 && value <= 4) {
+        bgColor = '#ffffcc'; // light yellow
+      } else if (value >= 5 && value <= 12) {
+        bgColor = '#ccffcc'; // light green
+      }
+
+      select.style.backgroundColor = bgColor;
+    }
+
+    // Initialize colors and add change listeners
+    selects.forEach(select => {
+      updateSelectColor(select);
+      select.addEventListener('change', function () {
+        updateSelectColor(this);
+      });
+    });
+  })();
+
   // --- small helper: wire section Save buttons to submit closest form or trigger partial save ---
   (function wireSectionSaves() {
     document.querySelectorAll('.section-save').forEach(btn => {

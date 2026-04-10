@@ -1,5 +1,3 @@
-console.log('Merged form + column script loaded.');
-
 document.addEventListener('DOMContentLoaded', function () {
   // guard to avoid double initialization if other scripts also run
   if (window.customAccordionInitialized) {
@@ -669,6 +667,55 @@ document.addEventListener('DOMContentLoaded', function () {
       const totEstimateEl = document.getElementById('totEstimate');
       const signatureData = document.getElementById('signatureData');
 
+      // if the user clicked Complete Ticket, we should validate the Digital Courtesy Check first
+      const ticketStatusElTop = document.getElementById('ticketStatus');
+      const tryingToCompleteTop = ticketStatusElTop && ticketStatusElTop.value === 'complete';
+      if (tryingToCompleteTop) {
+        const courtesy = document.getElementById('courtesy-check');
+        if (courtesy) {
+          const table = courtesy.querySelector('table');
+          if (table) {
+            const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').trim());
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            const courtesyErrors = [];
+            rows.forEach((row, rowIdx) => {
+              const firstCell = row.querySelector('td');
+              const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx+1}`;
+              const selects = Array.from(row.querySelectorAll('select'));
+              selects.forEach((sel) => {
+                if (!sel.value || String(sel.value).trim() === '') {
+                  const cell = sel.closest('td');
+                  let colIdx = -1;
+                  if (cell && cell.parentElement) colIdx = Array.from(cell.parentElement.children).indexOf(cell);
+                  const header = headers[colIdx] || 'Status';
+                  courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
+                }
+              });
+              const inputs = Array.from(row.querySelectorAll('input'));
+              if (inputs.length > 0) {
+                inputs.forEach((inp) => {
+                  const ph = (inp.getAttribute('placeholder') || '').toLowerCase();
+                  if (ph.includes('note') || ph.includes('comment')) return;
+                  const cell = inp.closest('td');
+                  if (cell) {
+                    const cellIdx = Array.from(cell.parentElement.children).indexOf(cell);
+                    const isLastColumn = cellIdx === (row.children.length - 1);
+                    if (isLastColumn) return;
+                    const header = headers[cellIdx] || `Column ${cellIdx+1}`;
+                    const val = (inp.value || '').toString().trim();
+                    if (!val) courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
+                  }
+                });
+              }
+            });
+            if (courtesyErrors.length > 0) {
+              showErrors(courtesyErrors);
+              return false;
+            }
+          }
+        }
+      }
+
       // basic required checks
       const roNum = roNumEl ? roNumEl.value.trim() : '';
       if (!roNum) errors.push('Repair Order number is required.');
@@ -725,6 +772,105 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       }
 
+      if (errors.length > 0) {
+        showErrors(errors);
+        return false;
+      }
+
+      // If completing the ticket, enforce full Digital Courtesy Check validation
+      const ticketStatusEl = document.getElementById('ticketStatus');
+      const tryingToComplete = ticketStatusEl && ticketStatusEl.value === 'complete';
+      if (tryingToComplete) {
+        const courtesy = document.getElementById('courtesy-check');
+        if (courtesy) {
+          const table = courtesy.querySelector('table');
+          if (table) {
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            rows.forEach((row, idx) => {
+              // require all select elements in the row (status) to have a value
+              const selects = Array.from(row.querySelectorAll('select'));
+              selects.forEach((sel) => {
+                if (!sel.value || String(sel.value).trim() === '') {
+                  errors.push(`Courtesy Check row ${idx+1}: status must be selected.`);
+                }
+              });
+
+              // require any inputs in the row other than the last column (notes) to be filled
+              const inputs = Array.from(row.querySelectorAll('input'));
+              if (inputs.length > 0) {
+                // treat the last input in the row as 'notes' (optional)
+                inputs.forEach((inp, i) => {
+                  if (i === inputs.length - 1) return; // skip notes
+                  if (!String(inp.value || '').trim()) {
+                    errors.push(`Courtesy Check row ${idx+1}: required field is empty.`);
+                  }
+                });
+              }
+            });
+          }
+
+          // also check for any 'Comments' input in this section and skip it (comments are optional)
+        }
+        // comprehensive required-fields check across the main form (excluding notes/comments and optional fields)
+        (function comprehensiveCheck() {
+          const main = document.querySelector('main');
+          if (!main) return;
+          const candidates = Array.from(main.querySelectorAll('input,select,textarea'));
+          candidates.forEach((el) => {
+            try {
+              if (!el) return;
+              // skip hidden, disabled, readonly
+              if (el.type === 'hidden' || el.disabled) return;
+              if (el.hasAttribute('readonly') && el.getAttribute('aria-readonly') === 'true') return;
+              // skip file inputs and buttons
+              if (el.type === 'file' || el.type === 'button' || el.type === 'submit') return;
+              // skip known hidden helpers
+              const skipNames = ['repairs','tags','signature','ticketStatus','subTotParts','subTotLabor','tax','totEstimate','timeIn','timeOut','timeInHour','timeInMinute','timeInAmPm','timeOutHour','timeOutMinute','timeOutAmPm','totTime'];
+              if (el.name && skipNames.includes(el.name)) return;
+              if (el.id && skipNames.includes(el.id)) return;
+
+              // skip inputs that are clearly notes/comments: placeholder or nearby label contains "Comments" or "Notes"
+              const ph = (el.getAttribute('placeholder') || '').toLowerCase();
+              if (ph.includes('notes') || ph.includes('comments')) return;
+              // find a nearby label
+              let labelText = '';
+              if (el.id) {
+                const lab = main.querySelector(`label[for="${el.id}"]`);
+                if (lab) labelText = (lab.textContent || '').trim();
+              }
+              if (!labelText) {
+                const parentLabel = el.closest('.form-group')?.querySelector('label');
+                if (parentLabel) labelText = (parentLabel.textContent || '').trim();
+              }
+              const lowerLabel = (labelText || '').toLowerCase();
+              if (lowerLabel.includes('comments') || lowerLabel.includes('notes')) return;
+
+              // skip inputs that are part of the repairs table (we validate repairs separately)
+              if (el.closest && el.closest('#repairs-table')) return;
+
+              // For selects, ensure a non-empty value
+              if (el.tagName.toLowerCase() === 'select') {
+                if (!el.value || String(el.value).trim() === '') {
+                  const name = labelText || (el.name || el.id) || 'Unnamed select';
+                  errors.push(`Required: ${name}`);
+                }
+                return;
+              }
+
+              // For text inputs and textareas, require non-empty
+              const val = (el.value || '').toString().trim();
+              if (!val) {
+                const name = labelText || (el.name || el.id) || 'Unnamed field';
+                errors.push(`Required: ${name}`);
+              }
+            } catch (e) {
+              console.warn('Validation check error for element', el, e);
+            }
+          });
+        })();
+      }
+
+      // If the complete-ticket checks added any errors, show them and stop submission
       if (errors.length > 0) {
         showErrors(errors);
         return false;
@@ -813,6 +959,66 @@ document.addEventListener('DOMContentLoaded', function () {
           if (main) main.requestSubmit();
         }
       });
+    });
+  })();
+
+  // --- Complete Ticket button at bottom wiring ---
+  (function wireCompleteTicketBottom() {
+    const btn = document.getElementById('completeTicketBottom');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      const form = document.getElementById('repForm');
+      if (!form) return alert('Main form not found');
+
+      // Run an immediate courtesy-check here and block if missing items
+      const courtesy = document.getElementById('courtesy-check');
+      if (courtesy) {
+        const table = courtesy.querySelector('table');
+        if (table) {
+          const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').trim());
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+          const courtesyErrors = [];
+          rows.forEach((row, rowIdx) => {
+            const firstCell = row.querySelector('td');
+            const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx+1}`;
+            const selects = Array.from(row.querySelectorAll('select'));
+            selects.forEach((sel) => {
+              if (!sel.value || String(sel.value).trim() === '') {
+                const cell = sel.closest('td');
+                let colIdx = -1;
+                if (cell && cell.parentElement) colIdx = Array.from(cell.parentElement.children).indexOf(cell);
+                const header = headers[colIdx] || 'Status';
+                courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
+              }
+            });
+            const inputs = Array.from(row.querySelectorAll('input'));
+            if (inputs.length > 0) {
+              inputs.forEach((inp) => {
+                const ph = (inp.getAttribute('placeholder') || '').toLowerCase();
+                if (ph.includes('note') || ph.includes('comment')) return;
+                const cell = inp.closest('td');
+                if (cell) {
+                  const cellIdx = Array.from(cell.parentElement.children).indexOf(cell);
+                  const isLastColumn = cellIdx === (row.children.length - 1);
+                  if (isLastColumn) return;
+                  const header = headers[cellIdx] || `Column ${cellIdx+1}`;
+                  const val = (inp.value || '').toString().trim();
+                  if (!val) courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
+                }
+              });
+            }
+          });
+          if (courtesyErrors.length > 0) {
+            alert(courtesyErrors.join('\n'));
+            return;
+          }
+        }
+      }
+
+      const status = document.getElementById('ticketStatus');
+      if (status) status.value = 'complete';
+      // use requestSubmit so the form's submit handler runs
+      try { form.requestSubmit(); } catch (e) { form.submit(); }
     });
   })();
 

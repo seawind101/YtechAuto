@@ -1,7 +1,7 @@
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE tickets (
@@ -18,7 +18,9 @@ CREATE TABLE tickets (
     concern TEXT NOT NULL,
     diagnosis TEXT NOT NULL,
     recommendedRepairs TEXT NOT NULL,
-    dateSigned TEXT NOT NULL
+    dateSigned TEXT NOT NULL,
+    customerSignature TEXT NOT NULL,
+    stat TEXT NOT NULL
 );
 
 CREATE TABLE recRepairs (
@@ -40,12 +42,12 @@ CREATE TABLE vechicleInfo (
     make TEXT NOT NULL,
     model TEXT NOT NULL,
     Color TEXT NOT NULL,
-    vin TEXT NOT NULL
+    vin TEXT NOT NULL,
     mfgDate TEXT NOT NULL,
     engineSize TEXT NOT NULL,
     transType TEXT NOT NULL,
     mileageC TEXT NOT NULL,
-    mileageO TEXT NOT NULL
+    mileageO TEXT NOT NULL,
     dateV TEXT NOT NULL,
     plate TEXT NOT NULL,
     comments TEXT
@@ -122,12 +124,12 @@ CREATE TABLE emissions (
     reInspectedBy TEXT NOT NULL,
     warnings TEXT NOT NULL,
     comments TEXT
-)
+);
 
 CREATE TABLE warningsTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
-    item TEXT NOT NULL,
+    item TEXT NOT NULL
 );
 
 -- "uploads/ filenamefromdb" + ".png"

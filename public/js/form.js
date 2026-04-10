@@ -731,6 +731,32 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       // all good -> submit
+      // serialize recommended repairs into hidden input so server can process them
+      try {
+        const repairsHidden = document.getElementById('repairs-hidden');
+        const repairsTable = document.getElementById('repairs-table');
+        const repairs = [];
+        if (repairsTable) {
+          const rows = Array.from(repairsTable.querySelectorAll('tbody tr'));
+          rows.forEach(r => {
+            // prefer class names, fallback to positional inputs
+            const desc = (r.querySelector('.rp-desc')?.value || (r.querySelectorAll('input,select')[0]?.value || '')).trim();
+            const qty = (r.querySelector('.rp-qty')?.value || (r.querySelectorAll('input,select')[1]?.value || '')).trim();
+            const partNumber = (r.querySelector('.rp-um')?.value || (r.querySelectorAll('input,select')[2]?.value || '')).trim();
+            const partPrice = (r.querySelector('.rp-partprice')?.value || (r.querySelectorAll('input,select')[3]?.value || '')).trim();
+            const partsTotal = (r.querySelector('.rp-partstotal')?.value || (r.querySelectorAll('input,select')[4]?.value || '')).trim();
+            const laborHours = (r.querySelector('.rp-laborhours')?.value || (r.querySelectorAll('input,select')[5]?.value || '')).trim();
+            const laborTotal = (r.querySelector('.rp-labortotal')?.value || (r.querySelectorAll('input,select')[6]?.value || '')).trim();
+            // skip empty rows
+            if (!desc && !qty && !partNumber && !partPrice && !laborHours) return;
+            repairs.push({ repairDescription: desc, qty: qty, partNumber: partNumber, partPrice: partPrice, partsTotal: partsTotal, laborHours: laborHours, laborTotal: laborTotal });
+          });
+        }
+        if (repairsHidden) repairsHidden.value = JSON.stringify(repairs);
+      } catch (err) {
+        console.error('Failed to serialize repairs:', err);
+      }
+
       form.submit();
       return true;
     }

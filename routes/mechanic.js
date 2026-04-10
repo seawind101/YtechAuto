@@ -51,55 +51,63 @@ router.post('/mechanic', (req, res) => {
     let diagnosis = req.body.diagnosis;
     let sDate = req.body.sDate;
     let signature = req.body.signature;
-   
-    console.log('RO Number:', roNum);
-    console.log('Date:', roDate);
-    console.log('Technician:', technician);
-    console.log('Time In:', timeArrive);
-    console.log('Time Out:', timeOut);
-    console.log('Total Time:', totTime);
-    console.log('Customer Name:', custName);
-    console.log('Customer Address:', custAdd);
-    console.log('Customer Phone:', custPhone);
-    console.log('Customer Email:', custEmail);
-    console.log('Concern:', concern);
-    console.log('Diagnosis:', diagnosis);
-    console.log('Signature Date:', sDate);
-    res.redirect('/mechanic');
+
+    const db = req.app.locals.db;
+    if (!db) {
+        console.error('Database not available on app.locals.db');
+        return res.status(500).send('Database not available');
+    }
+
+    // parse repairs JSON if provided
+    let repairs = [];
+    try {
+        if (req.body.repairs) repairs = JSON.parse(req.body.repairs);
+    } catch (err) {
+        console.warn('Invalid repairs JSON, ignoring', err);
+        repairs = [];
+    }
+
+    // store recommendedRepairs as JSON summary in tickets.recommendedRepairs
+    const recommendedRepairsText = JSON.stringify(repairs || []);
+
+    const insertTicketSql = `INSERT INTO tickets (date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const ticketParams = [roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate];
+
+    db.run(insertTicketSql, ticketParams, function(err) {
+        if (err) {
+            console.error('Failed to insert ticket:', err);
+            return res.status(500).send('Failed to save ticket');
+        }
+
+        const ticketId = this.lastID;
+        console.log('Inserted ticket id', ticketId);
+
+        if (!repairs || repairs.length === 0) {
+            return res.redirect('/mechanic');
+        }
+
+        // insert each recommended repair into recRepairs table
+        const insertRecSql = `INSERT INTO recRepairs (ticketId, repairDescription, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+        const stmt = db.prepare(insertRecSql);
+        repairs.forEach(r => {
+            const desc = r.repairDescription || '';
+            const qty = Number.isFinite(Number(r.qty)) ? parseInt(r.qty) : (r.qty ? parseInt(r.qty) : 0);
+            const partNumber = r.partNumber || '';
+            const partPrice = Number.isFinite(Number(r.partPrice)) ? parseFloat(r.partPrice) : (r.partPrice ? parseFloat(r.partPrice) : 0);
+            const partsTotal = Number.isFinite(Number(r.partsTotal)) ? parseFloat(r.partsTotal) : (r.partsTotal ? parseFloat(r.partsTotal) : (qty * partPrice));
+            const laborHours = Number.isFinite(Number(r.laborHours)) ? parseFloat(r.laborHours) : (r.laborHours ? parseFloat(r.laborHours) : 0);
+            const laborTotal = Number.isFinite(Number(r.laborTotal)) ? parseFloat(r.laborTotal) : (r.laborTotal ? parseFloat(r.laborTotal) : (laborHours * 100));
+
+            stmt.run([ticketId, desc, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal], (err) => {
+                if (err) console.error('Failed to insert recRepair row:', err);
+            });
+        });
+        stmt.finalize((err) => {
+            if (err) console.error('Failed finalizing recRepairs stmt:', err);
+            return res.redirect('/mechanic');
+        });
+    });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 router.post('/upload-video', upload.single('video'), (req, res) => {

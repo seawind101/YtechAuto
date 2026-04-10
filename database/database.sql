@@ -130,7 +130,16 @@ CREATE TABLE warningsTable (
     item TEXT NOT NULL
 );
 
-CREATE TABLE 
+CREATE TABLE pictures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticketID INTEGER NOT NULL,
+    filePath TEXT NOT NULL,
+    orignalName TEXT NOT NULL,
+    relativePath TEXT NOT NULL,
+    mimeType TEXT NOT NULL,
+    sizeBytes INTEGER NOT NULL,
+    uploadDate TEXT DEFAULT (datetime('now'))
+)
 
 
 

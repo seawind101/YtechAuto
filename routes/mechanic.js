@@ -27,7 +27,12 @@ const upload = multer({
 });
 
 router.get('/mechanic', (req, res) => {
-    res.render('mechanic');
+    const userCookie = req.cookies.user;
+    if (userCookie) {
+        res.render('mechanic');} 
+    else {
+        res.redirect('/login');
+        }
 });
 
 router.post('/mechanic', (req, res) => {

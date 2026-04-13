@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
 router.get('/ticket', (req, res) => {
-    res.render('ticket');
+    const userCookie = req.cookies.user;
+    if (userCookie) {
+        res.render('ticket');} 
+    else {
+        res.redirect('/login');
+        }
 });
 // GET /ticket/:id - Render ticket details page
 //router.get('/ticket/:id', (req, res) => {

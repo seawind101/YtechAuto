@@ -2,7 +2,12 @@ const express = require('express');
 const router = express.Router();
 
 router.get('/customer', (req, res) => {
-    res.render('customer');
+    const userCookie = req.cookies.user;
+    if (userCookie) {
+        res.render('customer');} 
+    else {
+        res.redirect('/login');
+        }
 });
 
 router.post('/customer', (req, res) => {

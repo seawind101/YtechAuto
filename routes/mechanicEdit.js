@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
 router.get('/mechanicEdit', (req, res) => {
-    res.render('mechanicEdit');
+    const userCookie = req.cookies.user;
+    if (userCookie) {
+        res.render('mechanicEdit');} 
+    else {
+        res.redirect('/login');
+        }
 });
 
 // return list of incomplete tickets as JSON

@@ -246,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const fileInput = document.getElementById('image-file');
       const trigger = document.getElementById('image-upload-trigger');
       const uploadBtn = document.getElementById('image-upload-btn');
-      const previewEl = document.getElementById('image-preview'); // optional <img> or container
+      const previewEl = document.getElementById('image-preview');
       if (!zone || !fileInput || !uploadBtn) return;
 
       let selectedImage = null;
@@ -254,7 +254,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
       function showPreview(file) {
         if (!previewEl) return;
-        // if previewEl is an <img>, set src; otherwise create/replace an img inside
         const reader = new FileReader();
         reader.onload = function (e) {
           if (previewEl.tagName && previewEl.tagName.toLowerCase() === 'img') {
@@ -289,7 +288,8 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault(); zone.classList.remove('dragover');
         const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
         if (f) {
-          fileInput.files = e.dataTransfer.files; // update input
+          // guard: setting input.files can throw in some environments
+          try { fileInput.files = e.dataTransfer.files; } catch (err) { console.warn('Could not set fileInput.files', err); }
           handleFileChosen(f);
         }
       });
@@ -324,6 +324,7 @@ document.addEventListener('DOMContentLoaded', function () {
       uploadBtn.addEventListener('click', function () {
         if (!selectedImage) { alert('Please select an image first.'); return; }
         const fd = new FormData();
+        // MATCH SERVER: use field name 'image' and route '/upload-image'
         fd.append('image', selectedImage);
         uploadBtn.textContent = 'Uploading...'; uploadBtn.disabled = true;
         fetch('/upload-image', { method: 'POST', body: fd })
@@ -642,6 +643,21 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   })();
 
+  // helper: upload signature dataURL to server and return parsed JSON
+  async function uploadSignatureDataUrl(dataUrl, ticketID) {
+    try {
+      const res = await fetch('/upload-signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketID: ticketID || null, dataUrl: dataUrl, originalName: 'signature.png' })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('uploadSignatureDataUrl error', err);
+      throw err;
+    }
+  }
+
   // --- Form validation & submit handling (main) ---
   (function initValidation() {
     const form = document.getElementById('repForm');
@@ -652,7 +668,7 @@ document.addEventListener('DOMContentLoaded', function () {
       alert(errors.join('\n'));
     }
 
-    function validateAndSubmit(e) {
+    async function validateAndSubmit(e) {
       e.preventDefault();
       const errors = [];
 
@@ -703,7 +719,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (tt !== '' && (isNaN(parseFloat(tt)) || parseFloat(tt) < 0)) errors.push('Total Estimate must be a non-negative number.');
       }
 
-      if (!signatureData || !signatureData.value) errors.push('Customer signature is required.');
+  if (!signatureData || !signatureData.value) errors.push('Customer signature is required.');
 
       // recommended repairs table validation
       const repairsTable = document.getElementById('repairs-table');
@@ -728,6 +744,33 @@ document.addEventListener('DOMContentLoaded', function () {
       if (errors.length > 0) {
         showErrors(errors);
         return false;
+      }
+
+      // all good -> upload signature (so server stores PNG) then submit
+      if (signatureData && signatureData.value) {
+        try {
+          // use roNum as ticket identifier when available
+          const ticketID = (document.getElementById('roNum')?.value || null);
+          const res = await uploadSignatureDataUrl(signatureData.value, ticketID);
+          if (!res || !res.success) {
+            showErrors(['Failed to save signature on server.']);
+            return false;
+          }
+          // ensure hidden input for server-side form processing
+          let sigPathEl = document.getElementById('signaturePath');
+          if (!sigPathEl) {
+            sigPathEl = document.createElement('input');
+            sigPathEl.type = 'hidden';
+            sigPathEl.id = 'signaturePath';
+            sigPathEl.name = 'signaturePath';
+            form.appendChild(sigPathEl);
+          }
+          sigPathEl.value = res.path || '';
+        } catch (err) {
+          console.error('Signature upload failed', err);
+          showErrors(['Failed to upload signature. Please try again.']);
+          return false;
+        }
       }
 
       // all good -> submit
@@ -817,3 +860,17 @@ document.addEventListener('DOMContentLoaded', function () {
   })();
 
 });
+function uploadSignatureDataUrl(dataUrl, ticketID) {
+  return fetch('/upload-signature', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticketID: ticketID || null, dataUrl: dataUrl, originalName: 'signature.png' })
+  }).then(r => r.json());
+}
+// usage example (call before final form submit)
+const sigData = document.getElementById('signatureData').value;
+if (sigData) {
+  uploadSignatureDataUrl(sigData, someTicketId)
+    .then(res => { if (res.success) console.log('Saved:', res.path); else console.error(res); })
+    .catch(err => console.error('Signature upload failed', err));
+}

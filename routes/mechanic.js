@@ -3,29 +3,55 @@ const multer = require('multer');
 const path = require('path');
 const router = express.Router();
 const sqlite3 = require('sqlite3').verbose();
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'upload/videos/') // Make sure this directory exists
-    },
+const fs = require('fs');
+
+const videoDir = path.join(__dirname, '..', 'upload', 'videos');
+const imageDir = path.join(__dirname, '..', 'upload', 'images');
+const signatureDir = path.join(__dirname, '..', 'upload', 'signatures');
+fs.mkdirSync(videoDir, { recursive: true });
+fs.mkdirSync(imageDir, { recursive: true });
+fs.mkdirSync(signatureDir, { recursive: true });
+
+// video storage
+const videoStorage = multer.diskStorage({
+    destination: function (req, file, cb) { cb(null, videoDir); },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, 'video-' + uniqueSuffix + path.extname(file.originalname));
     }
 });
-
-const upload = multer({ 
-    storage: storage,
-    limits: {
-        fileSize: 500 * 1024 * 1024 // 500MB limit
-    },
+const videoUpload = multer({
+    storage: videoStorage,
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
     fileFilter: function (req, file, cb) {
-        if (file.mimetype.startsWith('video/')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only video files are allowed!'));
-        }
+        if (file.mimetype && file.mimetype.startsWith('video/')) cb(null, true);
+        else cb(new Error('Only video files are allowed'));
     }
 });
+
+// image storage (matches video flow, uses field name 'image')
+const imageStorage = multer.diskStorage({
+    destination: function (req, file, cb) { cb(null, imageDir); },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'image-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const imageUpload = multer({
+    storage: imageStorage,
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+    fileFilter: function (req, file, cb) {
+        if (file.mimetype && file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Only image files are allowed'));
+    }
+});
+
+
+
+
+
+
 
 router.get('/mechanic', (req, res) => {
     res.render('mechanic');
@@ -38,7 +64,7 @@ router.post('/mechanic', (req, res) => {
     //console.log('Keys in req.body:', Object.keys(req.body));
     //console.log('===============================');
 
-    let roNum = req.body.roNum; 
+    let roNum = req.body.roNum;
     let roDate = req.body.roDate;
     let technician = req.body.technician;
     let timeArrive = req.body.timeIn;
@@ -74,7 +100,7 @@ router.post('/mechanic', (req, res) => {
     const insertTicketSql = `INSERT INTO tickets (date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const ticketParams = [roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate];
 
-    db.run(insertTicketSql, ticketParams, function(err) {
+    db.run(insertTicketSql, ticketParams, function (err) {
         if (err) {
             console.error('Failed to insert ticket:', err);
             return res.status(500).send('Failed to save ticket');
@@ -110,49 +136,45 @@ router.post('/mechanic', (req, res) => {
     });
 });
 
-
-router.post('/upload-video', upload.single('video'), (req, res) => {
+// video upload route (unchanged behavior)
+router.post('/upload-video', videoUpload.single('video'), (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No file uploaded' });
-        }
-        
-        console.log('Video uploaded successfully:', req.file.filename);
-        console.log('File size:', req.file.size, 'bytes');
-        console.log('Original name:', req.file.originalname);
-        
-        res.json({ 
-            success: true, 
-            message: 'Video uploaded successfully',
-            filename: req.file.filename,
-            originalName: req.file.originalname
-        });
-    } catch (error) {
-        console.error('Upload error:', error);
+        if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+        const rel = path.relative(path.join(__dirname, '..'), req.file.path).split(path.sep).join('/');
+        res.json({ success: true, filename: req.file.filename, originalName: req.file.originalname, path: rel });
+    } catch (err) {
+        console.error('Video upload error:', err);
         res.status(500).json({ success: false, message: 'Upload failed' });
     }
 });
 
-router.post('/upload-picture', upload.single('video'), (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No file uploaded' });
+// image upload route - SINGLE field 'image' to match client
+router.post('/upload-image', imageUpload.single('image'), (req, res) => {
+    const db = req.app.locals.db;
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+    const file = req.file;
+    const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
+    const insertSql = `INSERT INTO pictures (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
+                     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
+    const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath, file.mimetype, file.size];
+
+    db.run(insertSql, params, function (err) {
+        if (err) {
+            console.error('DB insert failed, removing uploaded file:', err);
+            // remove the saved file to avoid orphan
+            fs.unlink(file.path, (unlinkErr) => {
+                if (unlinkErr) console.error('Failed to unlink file after DB error:', unlinkErr);
+                return res.status(500).json({ success: false, message: 'Database error' });
+            });
+            return;
         }
-        
-        console.log('Video uploaded successfully:', req.file.filename);
-        console.log('File size:', req.file.size, 'bytes');
-        console.log('Original name:', req.file.originalname);
-        
-        res.json({ 
-            success: true, 
-            message: 'Video uploaded successfully',
-            filename: req.file.filename,
-            originalName: req.file.originalname
-        });
-    } catch (error) {
-        console.error('Upload error:', error);
-        res.status(500).json({ success: false, message: 'Upload failed' });
-    }
+        // success
+        res.json({ success: true, id: this.lastID, path: relativePath });
+    });
 });
+
+
+
 
 module.exports = router;

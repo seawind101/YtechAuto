@@ -135,15 +135,22 @@ CREATE TABLE warningsTable (
 CREATE TABLE pictures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
-    filePath TEXT NOT NULL,
-    orignalName TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    originalName TEXT NOT NULL,
     relativePath TEXT NOT NULL,
     mimeType TEXT NOT NULL,
     sizeBytes INTEGER NOT NULL,
     uploadDate TEXT DEFAULT (datetime('now'))
 )
 
-
+CREATE TABLE signatures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticketID INTEGER NOT NULL,
+    filename TEXT NOT NULL,
+    originalName TEXT NOT NULL,
+    relativePath TEXT NOT NULL,
+    uploadDate TEXT DEFAULT (datetime('now'))
+)
 
 -- "uploads/ filenamefromdb" + ".png"
 

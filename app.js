@@ -47,7 +47,7 @@ const mechanicDisRouter = require('./routes/mechanicDis');
 const mechanicEditRouter = require('./routes/mechanicEdit');
 const ticketRoute = require('./routes/ticket');
 const authRouter = require('./routes/auth');
-const uploadRouter = require('./routes/upload');
+
 
 
 app.use('/', indexRouter);
@@ -58,7 +58,6 @@ app.use('/', authRouter);
 app.use('/', mechanicDisRouter);
 app.use('/', mechanicEditRouter);
 app.use('/', ticketRoute);
-app.use('/', uploadRouter);
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
 
 server.listen(PORT, () => {

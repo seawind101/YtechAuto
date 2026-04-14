@@ -47,6 +47,25 @@ const imageUpload = multer({
     }
 });
 
+// signature storage + multipart upload route
+const signatureStorage = multer.diskStorage({
+  destination: function (req, file, cb) { cb(null, signatureDir); },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname) || '.png';
+    cb(null, 'signature-' + uniqueSuffix + ext);
+  }
+});
+
+const signatureUpload = multer({
+    storage: signatureStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    fileFilter: function (req, file, cb) {
+        if (file.mimetype && file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Only image files are allowed'));
+    }
+});
+
 router.get('/mechanic', (req, res) => {
     res.render('mechanic');
 });
@@ -130,9 +149,13 @@ router.post('/mechanic', (req, res) => {
     });
 });
 
-// video upload route (unchanged behavior)
+// video upload route 
 router.post('/upload-video', videoUpload.single('video'), (req, res) => {
     const db = req.app.locals.db;
+    if (!db) {
+        if (req.file) fs.unlink(req.file.path, () => { });
+        return res.status(500).json({ success: false, message: 'Database not available' });
+    }
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
     const file = req.file;
@@ -157,15 +180,55 @@ router.post('/upload-video', videoUpload.single('video'), (req, res) => {
 });
 
 // image upload route
-router.post('/upload-image', imageUpload.single('image'), (req, res) => {
+router.post('/upload-image', imageUpload.array('image'), (req, res) => {
     const db = req.app.locals.db;
+    if (!db) {
+        if (req.file) fs.unlink(req.file.path, () => { });
+        return res.status(500).json({ success: false, message: 'Database not available' });
+    }
+    if (!req.files || req.files.length === 0) return res.status(400).json({ success: false, message: 'No files uploaded' });
+
+    const results = [];
+    let pending = req.files.length;
+
+    req.files.forEach((file) => {
+        const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
+        const insertSql = `INSERT INTO pictures (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
+                     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
+        const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath, file.mimetype, file.size];
+
+        db.run(insertSql, params, function (err) {
+            if (err) {
+                console.error('upload-image: DB insert failed for', file.filename, err);
+                // remove file to avoid orphans
+                try { fs.unlinkSync(file.path); } catch (e) { /* ignore */ }
+                results.push({ success: false, filename: file.filename, error: err.message });
+            } else {
+                results.push({ success: true, id: this.lastID, filename: file.filename, path: relativePath });
+            }
+
+            pending -= 1;
+            if (pending === 0) {
+                return res.json({ success: true, files: results });
+            }
+        });
+    });
+});
+
+//signitures upload route
+router.post('/upload-signature', signatureUpload.single('signature'), (req, res) => {
+    const db = req.app.locals.db;
+    if (!db) {
+        if (req.file) fs.unlink(req.file.path, () => { });
+        return res.status(500).json({ success: false, message: 'Database not available' });
+    }
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
     const file = req.file;
     const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
-    const insertSql = `INSERT INTO pictures (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
-                     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
-    const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath, file.mimetype, file.size];
+    const insertSql = `INSERT INTO signatures (ticketID, filename, originalName, relativePath, uploadDate)
+                     VALUES (?, ?, ?, ?, datetime('now'))`;
+    const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath];
 
     db.run(insertSql, params, function (err) {
         if (err) {

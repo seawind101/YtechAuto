@@ -156,7 +156,7 @@ CREATE TABLE videos (
 
 CREATE TABLE signatures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticketID INTEGER NOT NULL,
+    ticketID INTEGER,
     filename TEXT NOT NULL,
     originalName TEXT NOT NULL,
     relativePath TEXT NOT NULL,

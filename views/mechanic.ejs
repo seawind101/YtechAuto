@@ -4,9 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mechanic - Auto Repair Ticket System</title>
-  <link rel="stylesheet" href="css/styles.css">
-  <script src="js/mockup.js"></script>
-  <script src="js/form.js"></script>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="/js/mockup.js"></script>
+  <% if (typeof ticket !== 'undefined' && ticket) { %>
+  <script>window.__SERVER_TICKET__ = <%- JSON.stringify(ticket) %>;</script>
+  <% } %>
+  <script src="/js/form.js"></script>
 </head>
 <body>
   <header class="site-header">
@@ -87,7 +90,7 @@
 
         <h3>Concern</h3>
         <div class="form-group full-width">
-          <input type="textarea" name="concern" id="concern" placeholder="Customer concern or service requested"></input>
+          <input type="textarea" name="concern" id="concern" placeholder="Mechanic's concern or service requested by customer"></input>
         </div>
 
         <h3>Diagnosis / Cause / Correction</h3>
@@ -186,6 +189,7 @@
 
 
         <button id="firstSub" type="submit" class="btn btn-primary save-ticket">Save Ticket</button>
+        <input type="hidden" id="ticketStatus" name="ticketStatus" value="">
       </form>
     </section>
 
@@ -641,6 +645,12 @@
       <div id="image-preview" style="margin-top:8px;"></div>
       <button type="button" class="btn btn-primary" id="image-upload-btn" style="margin-top:1rem" disabled>Upload</button>
     </section>
+    <div style="padding:1rem;text-align:center;margin-top:1rem">
+      <button id="completeTicketBottom" type="button" class="btn btn-success">Complete Ticket</button>
+    </div>
   </main>
+
+    <!-- server-provided ticket payload (JSON). Read by public/js/form.js to populate the form when editing -->
+    <input type="hidden" id="server-ticket" value='<%- JSON.stringify(typeof locals !== "undefined" && locals.ticket ? locals.ticket : null) %>'>
 </body>
 </html>

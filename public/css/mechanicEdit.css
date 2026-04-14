@@ -1,0 +1,110 @@
+/* Styles extracted from mechanicEdit.ejs */
+:root {
+  --header-bg: #2c3e50;
+  --header-text: #ecf0f1;
+  --content-bg: #f8f9fa;
+  --card-bg: #ffffff;
+  --border: #dee2e6;
+  --text: #2c3e50;
+  --text-muted: #6c757d;
+  --status-red: #e74c3c;
+  --status-yellow: #f1c40f;
+  --status-green: #27ae60;
+  --accent: #3498db;
+  --accent-hover: #2980b9;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--content-bg);
+  min-height: 100vh;
+}
+.site-header { background: var(--header-bg); color: var(--header-text); padding: 1.5rem 2rem; }
+.site-header h1 { margin: 0; font-size: 1.5rem; }
+.site-header .tagline { margin: 0.25rem 0 0; font-size: 0.9rem; opacity: 0.9; }
+.site-header a { color: var(--header-text); text-decoration: none; }
+.site-header a:hover { text-decoration: underline; }
+.landing { max-width: 800px; margin: 2rem auto; padding: 0 2rem; }
+.landing h2 { text-align: center; margin-bottom: 2rem; color: var(--text); }
+.role-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
+.mechanic-dashboard .role-cards { display: flex; justify-content: center; align-items: stretch; gap: 1.5rem; flex-wrap: nowrap; }
+.mechanic-dashboard .role-card { flex: 0 0 300px; }
+@media (max-width: 980px) { .mechanic-dashboard .role-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; } .mechanic-dashboard .role-card { flex: 1 1 auto; } }
+.role-card { display: block; padding: 2rem; background: var(--card-bg); border-radius: 8px; border: 2px solid var(--border); text-decoration: none; color: var(--text); transition: border-color 0.2s, box-shadow 0.2s; }
+.role-card:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.role-icon { display: block; font-size: 2.5rem; margin-bottom: 1rem; }
+.mechanic-card .role-icon { color: var(--status-yellow); }
+.customer-card .role-icon { color: var(--status-green); }
+.role-card h3 { margin: 0 0 0.5rem; font-size: 1.25rem; }
+.role-card p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
+.main-content { max-width: 960px; margin: 0 auto; padding: 2rem; }
+.section { background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); padding: 1.5rem; margin-bottom: 1.5rem; }
+.section h2 { margin: 0 0 1rem; font-size: 1.1rem; color: var(--header-bg); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+.section h3 { margin: 1rem 0 0.5rem; font-size: 1rem; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.form-group.full-width { grid-column: 1 / -1; }
+.form-group label { font-weight: 500; font-size: 0.9rem; }
+.form-group input, .form-group select, .form-group textarea { padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 4px; font-size: 1rem; }
+.form-group textarea { min-height: 80px; resize: vertical; }
+.table-wrapper { overflow-x: auto; margin: 1rem 0; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 0.5rem 0.75rem; text-align: left; border: 1px solid var(--border); }
+th { background: var(--content-bg); font-weight: 600; font-size: 0.85rem; }
+.status-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 500; }
+.status-red { background: var(--status-red); color: white; }
+.status-yellow { background: var(--status-yellow); color: #333; }
+.status-green { background: var(--status-green); color: white; }
+.btn { display: inline-block; padding: 0.5rem 1rem; font-size: 1rem; font-weight: 500; border-radius: 4px; border: none; cursor: pointer; transition: background 0.2s; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--content-bg); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.video-upload-zone, .image-upload-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; background: var(--content-bg); color: var(--text-muted); }
+.video-upload-zone:hover, .image-upload-zone:hover { border-color: var(--accent); color: var(--text); }
+.video-upload-zone p, .image-upload-zone p { margin: 0 0 1rem; }
+.video-section, .image-section { margin-top: 1rem; }
+.video-section video, .image-section image { width: 100%; max-width: 640px; border-radius: 8px; background: #000; }
+.video-download-link, .image-download-link { display: inline-block; margin-top: 0.5rem; color: var(--accent); text-decoration: none; }
+.video-download-link:hover, .image-download-link:hover { text-decoration: underline; }
+.accordion-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: var(--content-bg); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-weight: 500; }
+.accordion-header:hover { background: var(--border); }
+.accordion-header::after { content: '\25BC'; font-size: 0.75rem; }
+.accordion-header.collapsed::after { content: '\25B6'; }
+.accordion-content { padding: 1rem; border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px; }
+.auth-block { font-size: 0.85rem; color: var(--text-muted); background: var(--content-bg); padding: 1rem; border-radius: 4px; margin-top: 1rem; max-height: 200px; overflow-y: auto; }
+.read-only-value { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.read-only-value:last-child { border-bottom: none; }
+.read-only-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; }
+.back-link { display: inline-block; margin-bottom: 1rem; color: var(--accent); text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+.inspection-summary { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+.inspection-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.inspection-item:last-child { border-bottom: none; }
+.accordion-content.collapsed-content { display: none; }
+.form-row { display: flex; flex-direction: column; gap: 0.5rem; }
+#tags-root { display: flex; flex-direction: column; gap: 0.5rem; }
+#tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 0.25rem 0.5rem; border-radius: 999px; background: rgba(52,152,219,0.12); color: var(--accent); border: 1px solid rgba(52,152,219,0.18); font-size: 0.9rem; }
+.tag-chip .remove-tag { background: transparent; border: none; color: var(--accent); cursor: pointer; font-weight: 700; padding: 0 0.25rem; }
+#tag-input { padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); }
+#add-tag { padding: 0.5rem 0.75rem; border-radius: 6px; border: none; background: var(--accent); color: #fff; cursor: pointer; }
+#add-tag:hover { background: var(--accent-hover); }
+@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+
+/* Simple iframe container for embedding the mechanic page */
+#mechanic-iframe {
+  width: 100%;
+  height: 1200px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+}
+
+.ticket-selector-row { display:flex; gap:0.5rem; align-items:center; margin-bottom:1rem; }
+.ticket-selector-row select { padding:0.5rem; border-radius:4px; border:1px solid var(--border); }
+.ticket-selector-row .btn { padding:0.5rem 0.75rem; }

@@ -17,27 +17,27 @@
     <a href="/customerDis" class="btn btn-secondary" style="margin-left:1rem">View All</a>
     <!-- Ticket Summary -->
     <section class="section">
-      <h2>Repair Ticket #RO-2024-0042</h2>
+      <h2 id="ticketNum">Repair Ticket (Number here)</h2>
       <div class="form-grid">
         <div class="read-only-value">
           <div class="read-only-label">Date</div>
-          <div>February 20, 2025</div>
+          <div id="dateOut"></div>
         </div>
         <div class="read-only-value">
           <div class="read-only-label">Technician</div>
-          <div>J. Smith</div>
+          <div id="technicianOut"></div>
         </div>
         <div class="read-only-value">
           <div class="read-only-label">Vehicle</div>
-          <div>2018 Honda Accord LX</div>
+          <div id="MMYOut"></div>
         </div>
         <div class="read-only-value">
           <div class="read-only-label">License Plate</div>
-          <div>ABC-1234</div>
+          <div id="licensePlateOut"></div>
         </div>
         <div class="read-only-value">
           <div class="read-only-label">Mileage In / Out</div>
-          <div>85,432 / 85,445</div>
+          <div id="mileageIn-Out"></div>
         </div>
       </div>
     </section>
@@ -45,13 +45,13 @@
     <!-- Mechanic Notes - Concern -->
     <section class="section">
       <h2>Your Concern</h2>
-      <p>Brake pedal feels soft and pulls to the left when stopping. Customer also requested oil change and tire rotation.</p>
+      <p id="concernOut"></p>
     </section>
 
     <!-- Mechanic Notes - Diagnosis -->
     <section class="section">
       <h2>Diagnosis / Cause / Correction</h2>
-      <p>Front brake pads at 3mm (minimum spec 4mm). Left front caliper slide pins showing corrosion. Replaced front brake pads and rotors, lubricated caliper slide pins. Performed brake fluid flush. Completed oil change and tire rotation as requested.</p>
+      <p id="diagnosisOut"></p>
     </section>
 
     <!-- Recommended Repairs (completed work shown) -->
@@ -70,32 +70,32 @@
           </thead>
           <tbody>
             <tr>
-              <td>Front Brake Pads</td>
-              <td>1</td>
-              <td>HON-45022</td>
-              <td>$89.00</td>
-              <td>$85.00</td>
+              <td id="descOfWork1"></td>
+              <td id="qty1"></td>
+              <td id="partsNum1"></td>
+              <td id="partTot1"></td>
+              <td id="LabourTot1"></td>
             </tr>
             <tr>
-              <td>Front Brake Rotors</td>
-              <td>2</td>
-              <td>HON-45025</td>
-              <td>$156.00</td>
-              <td>Included</td>
+              <td id="descOfWork2"></td>
+              <td id="qty2"></td>
+              <td id="partsNum2"></td>
+              <td id="partTot2"></td>
+              <td id="LabourTot2"></td>
             </tr>
             <tr>
-              <td>Brake Fluid Flush</td>
-              <td>1</td>
-              <td>—</td>
-              <td>$24.00</td>
-              <td>$45.00</td>
+              <td id="descOfWork3"></td>
+              <td id="qty3"></td>
+              <td id="partsNum3"></td>
+              <td id="partTot3"></td>
+              <td id="LabourTot3"></td>
             </tr>
             <tr>
-              <td>Oil Change & Tire Rotation</td>
-              <td>1</td>
-              <td>—</td>
-              <td>$42.00</td>
-              <td>$35.00</td>
+              <td id="descOfWork4"></td>
+              <td id="qty4"></td>
+              <td id="partsNum4"></td>
+              <td id="partTot4"></td>
+              <td id="LabourTot4"></td>
             </tr>
           </tbody>
         </table>
@@ -103,19 +103,19 @@
       <div class="form-grid" style="margin-top:1rem; max-width:400px">
         <div class="read-only-value">
           <div class="read-only-label">Subtotal (Parts)</div>
-          <div>$311.00</div>
+          <div id="subTotParts"></div>
         </div>
         <div class="read-only-value">
           <div class="read-only-label">Subtotal (Labor)</div>
-          <div>$165.00</div>
+          <div id="subTotLabor"></div>
         </div>
         <div class="read-only-value">
           <div class="read-only-label">Tax</div>
-          <div>$28.50</div>
+          <div id="tax"></div>
         </div>
         <div class="read-only-value">
           <div class="read-only-label">Total</div>
-          <div><strong>$504.50</strong></div>
+          <div id="totalOut"><strong></strong></div>
         </div>
       </div>
     </section>
@@ -123,31 +123,19 @@
     <!-- Vehicle Inspection Summary -->
     <section class="section">
       <h2>Vehicle Inspection Summary</h2>
-      <p>Key items from the courtesy check:</p>
+      <p>Warnings from courtesy check:</p>
       <div class="inspection-summary">
         <div class="inspection-item">
           <span class="status-badge status-green">OK</span>
-          <span>Wiper Blades</span>
-        </div>
-        <div class="inspection-item">
-          <span class="status-badge status-green">OK</span>
-          <span>Headlights</span>
+          <span>Model-Green</span>
         </div>
         <div class="inspection-item">
           <span class="status-badge status-yellow">Monitor</span>
-          <span>Air Filter — Replace at next service</span>
+          <span>Model-Yellow</span>
         </div>
         <div class="inspection-item">
           <span class="status-badge status-red">Needs Service</span>
-          <span>Battery — CCA low, recommend replacement within 6 months</span>
-        </div>
-        <div class="inspection-item">
-          <span class="status-badge status-green">OK</span>
-          <span>Tires — Tread depth 7/32" all corners</span>
-        </div>
-        <div class="inspection-item">
-          <span class="read-only-label">Next Oil Change</span>
-          <span>90,432 miles</span>
+          <span>Model-Red</span>
         </div>
       </div>
     </section>

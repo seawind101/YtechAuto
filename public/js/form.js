@@ -1,5 +1,4 @@
-console.log('Merged form + column script loaded.');
-
+console.log('form.js loaded');
 document.addEventListener('DOMContentLoaded', function () {
   // guard to avoid double initialization if other scripts also run
   if (window.customAccordionInitialized) {
@@ -340,16 +339,19 @@ document.addEventListener('DOMContentLoaded', function () {
       selectedFiles.forEach(f => fd.append('image', f));
       // include ticketID if needed: fd.append('ticketID', ticketIdValue);
       uploadBtn.textContent = 'Uploading...'; uploadBtn.disabled = true;
+
       fetch('/upload-image', { method: 'POST', body: fd })
         .then(res => res.json())
-        .then(data => {
+        .then((data) => {
           if (data && data.success) {
             alert('Images uploaded successfully!');
-            const p = zone.querySelector('p'); if (p) p.textContent = 'Upload complete';
-            zone.style.backgroundColor = '#d4edda'; zone.style.borderColor = '#c3e6cb';
+            const p = zone.querySelector('p');
+            if (p) p.textContent = 'Upload complete';
+            zone.style.backgroundColor = '#d4edda';
+            zone.style.borderColor = '#c3e6cb';
             fileInput.value = '';
             selectedFiles = [];
-            previewEl && (previewEl.innerHTML = '');
+            if (previewEl) previewEl.innerHTML = '';
           } else {
             alert('Upload failed: ' + (data && data.message ? data.message : 'Unknown'));
           }
@@ -693,6 +695,55 @@ document.addEventListener('DOMContentLoaded', function () {
       const totEstimateEl = document.getElementById('totEstimate');
       const signatureData = document.getElementById('signatureData');
 
+      // if the user clicked Complete Ticket, we should validate the Digital Courtesy Check first
+      const ticketStatusElTop = document.getElementById('ticketStatus');
+      const tryingToCompleteTop = ticketStatusElTop && ticketStatusElTop.value === 'complete';
+      if (tryingToCompleteTop) {
+        const courtesy = document.getElementById('courtesy-check');
+        if (courtesy) {
+          const table = courtesy.querySelector('table');
+          if (table) {
+            const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').trim());
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            const courtesyErrors = [];
+            rows.forEach((row, rowIdx) => {
+              const firstCell = row.querySelector('td');
+              const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx+1}`;
+              const selects = Array.from(row.querySelectorAll('select'));
+              selects.forEach((sel) => {
+                if (!sel.value || String(sel.value).trim() === '') {
+                  const cell = sel.closest('td');
+                  let colIdx = -1;
+                  if (cell && cell.parentElement) colIdx = Array.from(cell.parentElement.children).indexOf(cell);
+                  const header = headers[colIdx] || 'Status';
+                  courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
+                }
+              });
+              const inputs = Array.from(row.querySelectorAll('input'));
+              if (inputs.length > 0) {
+                inputs.forEach((inp) => {
+                  const ph = (inp.getAttribute('placeholder') || '').toLowerCase();
+                  if (ph.includes('note') || ph.includes('comment')) return;
+                  const cell = inp.closest('td');
+                  if (cell) {
+                    const cellIdx = Array.from(cell.parentElement.children).indexOf(cell);
+                    const isLastColumn = cellIdx === (row.children.length - 1);
+                    if (isLastColumn) return;
+                    const header = headers[cellIdx] || `Column ${cellIdx+1}`;
+                    const val = (inp.value || '').toString().trim();
+                    if (!val) courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
+                  }
+                });
+              }
+            });
+            if (courtesyErrors.length > 0) {
+              showErrors(courtesyErrors);
+              return false;
+            }
+          }
+        }
+      }
+
       // basic required checks
       const roNum = roNumEl ? roNumEl.value.trim() : '';
       if (!roNum) errors.push('Repair Order number is required.');
@@ -789,6 +840,103 @@ document.addEventListener('DOMContentLoaded', function () {
           showErrors(['Failed to process signature. Please try again.']);
           return false;
         }
+      } // end if (signatureData && signatureData.value)
+
+      // If completing the ticket, enforce full Digital Courtesy Check validation
+      const ticketStatusEl = document.getElementById('ticketStatus');
+      const tryingToComplete = ticketStatusEl && ticketStatusEl.value === 'complete';
+      if (tryingToComplete) {
+        const courtesy = document.getElementById('courtesy-check');
+        if (courtesy) {
+          const table = courtesy.querySelector('table');
+          if (table) {
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            rows.forEach((row, idx) => {
+              // require all select elements in the row (status) to have a value
+              const selects = Array.from(row.querySelectorAll('select'));
+              selects.forEach((sel) => {
+                if (!sel.value || String(sel.value).trim() === '') {
+                  errors.push(`Courtesy Check row ${idx+1}: status must be selected.`);
+                }
+              });
+
+              // require any inputs in the row other than the last column (notes) to be filled
+              const inputs = Array.from(row.querySelectorAll('input'));
+              if (inputs.length > 0) {
+                // treat the last input in the row as 'notes' (optional)
+                inputs.forEach((inp, i) => {
+                  if (i === inputs.length - 1) return; // skip notes
+                  if (!String(inp.value || '').trim()) {
+                    errors.push(`Courtesy Check row ${idx+1}: required field is empty.`);
+                  }
+                });
+              }
+            });
+          }
+        }
+        // comprehensive required-fields check across the main form (excluding notes/comments and optional fields)
+        (function comprehensiveCheck() {
+          const main = document.querySelector('main');
+          if (!main) return;
+          const candidates = Array.from(main.querySelectorAll('input,select,textarea'));
+          candidates.forEach((el) => {
+            try {
+              if (!el) return;
+              // skip hidden, disabled, readonly
+              if (el.type === 'hidden' || el.disabled) return;
+              if (el.hasAttribute('readonly') && el.getAttribute('aria-readonly') === 'true') return;
+              // skip file inputs and buttons
+              if (el.type === 'file' || el.type === 'button' || el.type === 'submit') return;
+              // skip known hidden helpers
+              const skipNames = ['repairs','tags','signature','ticketStatus','subTotParts','subTotLabor','tax','totEstimate','timeIn','timeOut','timeInHour','timeInMinute','timeInAmPm','timeOutHour','timeOutMinute','timeOutAmPm','totTime'];
+              if (el.name && skipNames.includes(el.name)) return;
+              if (el.id && skipNames.includes(el.id)) return;
+
+              // skip inputs that are clearly notes/comments: placeholder or nearby label contains "Comments" or "Notes"
+              const ph = (el.getAttribute('placeholder') || '').toLowerCase();
+              if (ph.includes('notes') || ph.includes('comments')) return;
+              // find a nearby label
+              let labelText = '';
+              if (el.id) {
+                const lab = main.querySelector(`label[for="${el.id}"]`);
+                if (lab) labelText = (lab.textContent || '').trim();
+              }
+              if (!labelText) {
+                const parentLabel = el.closest('.form-group')?.querySelector('label');
+                if (parentLabel) labelText = (parentLabel.textContent || '').trim();
+              }
+              const lowerLabel = (labelText || '').toLowerCase();
+              if (lowerLabel.includes('comments') || lowerLabel.includes('notes')) return;
+
+              // skip inputs that are part of the repairs table (we validate repairs separately)
+              if (el.closest && el.closest('#repairs-table')) return;
+
+              // For selects, ensure a non-empty value
+              if (el.tagName.toLowerCase() === 'select') {
+                if (!el.value || String(el.value).trim() === '') {
+                  const name = labelText || (el.name || el.id) || 'Unnamed select';
+                  errors.push(`Required: ${name}`);
+                }
+                return;
+              }
+
+              // For text inputs and textareas, require non-empty
+              const val = (el.value || '').toString().trim();
+              if (!val) {
+                const name = labelText || (el.name || el.id) || 'Unnamed field';
+                errors.push(`Required: ${name}`);
+              }
+            } catch (e) {
+              console.warn('Validation check error for element', el, e);
+            }
+          });
+        })();
+      }
+
+      // If the complete-ticket checks added any errors, show them and stop submission
+      if (errors.length > 0) {
+        showErrors(errors);
+        return false;
       }
 
       // all good -> submit
@@ -823,8 +971,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     form.addEventListener('submit', validateAndSubmit);
-  })();
 
+  })();
+  
   // --- Brake pads/rotors color coding based on thickness ---
   (function initBrakeColorCoding() {
     const brakesSection = document.getElementById('brakes');
@@ -876,4 +1025,199 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
   })();
+
+  // --- Complete Ticket button at bottom wiring ---
+  (function wireCompleteTicketBottom() {
+    const btn = document.getElementById('completeTicketBottom');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      const form = document.getElementById('repForm');
+      if (!form) return alert('Main form not found');
+
+      // Run an immediate courtesy-check here and block if missing items
+      const courtesy = document.getElementById('courtesy-check');
+      if (courtesy) {
+        const table = courtesy.querySelector('table');
+        if (table) {
+          const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').trim());
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+          const courtesyErrors = [];
+          rows.forEach((row, rowIdx) => {
+            const firstCell = row.querySelector('td');
+            const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx+1}`;
+            const selects = Array.from(row.querySelectorAll('select'));
+            selects.forEach((sel) => {
+              if (!sel.value || String(sel.value).trim() === '') {
+                const cell = sel.closest('td');
+                let colIdx = -1;
+                if (cell && cell.parentElement) colIdx = Array.from(cell.parentElement.children).indexOf(cell);
+                const header = headers[colIdx] || 'Status';
+                courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
+              }
+            });
+            const inputs = Array.from(row.querySelectorAll('input'));
+            if (inputs.length > 0) {
+              inputs.forEach((inp) => {
+                const ph = (inp.getAttribute('placeholder') || '').toLowerCase();
+                if (ph.includes('note') || ph.includes('comment')) return;
+                const cell = inp.closest('td');
+                if (cell) {
+                  const cellIdx = Array.from(cell.parentElement.children).indexOf(cell);
+                  const isLastColumn = cellIdx === (row.children.length - 1);
+                  if (isLastColumn) return;
+                  const header = headers[cellIdx] || `Column ${cellIdx+1}`;
+                  const val = (inp.value || '').toString().trim();
+                  if (!val) courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
+                }
+              });
+            }
+          });
+          if (courtesyErrors.length > 0) {
+            alert(courtesyErrors.join('\n'));
+            return;
+          }
+        }
+      }
+
+      const status = document.getElementById('ticketStatus');
+      if (status) status.value = 'complete';
+      // use requestSubmit so the form's submit handler runs
+      try { form.requestSubmit(); } catch (e) { form.submit(); }
+    });
+  })();
+
 });
+
+// --- Populate form from server-provided ticket JSON (if present) ---
+(function populateFromServerTicket() {
+  try {
+    // attempt to read hidden input first
+    var serverEl = document.getElementById('server-ticket');
+    var raw = serverEl ? serverEl.value : null;
+    if (!raw && window.__SERVER_TICKET__) raw = JSON.stringify(window.__SERVER_TICKET__);
+    if (!raw) return;
+    var ticket = JSON.parse(raw);
+    if (!ticket) return;
+
+    // run when DOM is ready
+    function applyTicket() {
+      try {
+        console.log('populateFromServerTicket: applying ticket', ticket);
+        if (ticket.date) document.getElementById('roDate') && (document.getElementById('roDate').value = ticket.date || '');
+        if (ticket.techName) document.getElementById('technician') && (document.getElementById('technician').value = ticket.techName || '');
+        // Repair order can be named differently in DB: try several possibilities
+        const ro = ticket.roNum || ticket.repairOrderNumber || ticket.ro || ticket.repairOrder || ticket.repair_order || '';
+        if (ro) {
+          const roEl = document.getElementById('roNum');
+          if (roEl) roEl.value = ro;
+        }
+
+        // timeIn/timeOut: set hidden fields and the individual selects if present
+        if (ticket.timeIn) document.getElementById('timeIn') && (document.getElementById('timeIn').value = ticket.timeIn || '');
+        if (ticket.timeOut) document.getElementById('timeOut') && (document.getElementById('timeOut').value = ticket.timeOut || '');
+        if (ticket.totalTime) document.getElementById('totTime') && (document.getElementById('totTime').value = ticket.totalTime || '');
+        if (ticket.customerName) document.getElementById('custName') && (document.getElementById('custName').value = ticket.customerName || '');
+        if (ticket.customerAddress) document.getElementById('custAddress') && (document.getElementById('custAddress').value = ticket.customerAddress || '');
+        if (ticket.customerPhone) document.getElementById('custPhone') && (document.getElementById('custPhone').value = ticket.customerPhone || '');
+        if (ticket.customerEmail) document.getElementById('custEmail') && (document.getElementById('custEmail').value = ticket.customerEmail || '');
+        if (ticket.concern) document.getElementById('concern') && (document.getElementById('concern').value = ticket.concern || '');
+        if (ticket.diagnosis) document.getElementById('diagnosis') && (document.getElementById('diagnosis').value = ticket.diagnosis || '');
+        if (ticket.dateSigned) document.getElementById('sDate') && (document.getElementById('sDate').value = ticket.dateSigned || '');
+        if (ticket.customerSignature) {
+          var sigField = document.getElementById('signatureData');
+          if (sigField) sigField.value = ticket.customerSignature || '';
+        }
+
+        // populate repairs table: use same markup as the add-row template so classes are correct
+        if (Array.isArray(ticket.repairs) && ticket.repairs.length) {
+          var tbody = document.querySelector('#repairs-table tbody');
+          if (tbody) {
+            tbody.innerHTML = '';
+            ticket.repairs.forEach(function(r){
+              var tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td><input type="text" class="rp-desc" placeholder="Description"></td>
+                <td><input type="number" min="0" class="rp-qty" placeholder="1" style="width:4em"></td>
+                <td><input type="text" class="rp-um" placeholder="Part #"></td>
+                <td><input type="number" min="0" step="0.01" class="rp-partprice" placeholder="0.00"></td>
+                <td><input type="text" class="rp-partstotal" placeholder="0.00" readonly tabindex="-1" aria-readonly="true"></td>
+                <td><input type="number" min="0" step="0.01" class="rp-laborhours" placeholder="0.00"></td>
+                <td><input type="text" class="rp-labortotal" placeholder="0.00" readonly tabindex="-1" aria-readonly="true"></td>
+                <td><button type="button" class="remove-repair-line">Remove</button></td>
+              `;
+              tbody.appendChild(tr);
+              // fill values
+              try { tr.querySelector('.rp-desc').value = r.repairDescription || ''; } catch (e) {}
+              try { tr.querySelector('.rp-qty').value = (r.qty != null) ? r.qty : ''; } catch (e) {}
+              try { tr.querySelector('.rp-um').value = r.partNumber || ''; } catch (e) {}
+              try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch (e) {}
+              try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch (e) {}
+              try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch (e) {}
+              try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch (e) {}
+              // wire the row behaviors already present in the page if available
+              try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch(e){}
+              try { if (typeof wireRow === 'function') wireRow(tr); } catch(e){}
+            });
+            // update subtotals after populating: attempt to call existing helper, otherwise compute locally
+            try {
+              if (typeof updateSubtotals === 'function') updateSubtotals();
+              else {
+                // compute sums locally
+                const rowsNow = Array.from(tbody.querySelectorAll('tr'));
+                let partsSum = 0, laborSum = 0;
+                rowsNow.forEach(rr => {
+                  const pt = parseFloat((rr.querySelector('.rp-partstotal') && rr.querySelector('.rp-partstotal').value) || '') || 0;
+                  const lt = parseFloat((rr.querySelector('.rp-labortotal') && rr.querySelector('.rp-labortotal').value) || '') || 0;
+                  // fallback: compute from qty * price or laborHours * 100
+                  if (!pt) {
+                    const qty = parseFloat((rr.querySelector('.rp-qty') && rr.querySelector('.rp-qty').value) || '') || 0;
+                    const price = parseFloat((rr.querySelector('.rp-partprice') && rr.querySelector('.rp-partprice').value) || '') || 0;
+                    partsSum += qty * price;
+                  } else partsSum += pt;
+                  if (!lt) {
+                    const lh = parseFloat((rr.querySelector('.rp-laborhours') && rr.querySelector('.rp-laborhours').value) || '') || 0;
+                    laborSum += lh * 100;
+                  } else laborSum += lt;
+                });
+                const subPartsEl = document.getElementById('subTotParts');
+                const subLaborEl = document.getElementById('subTotLabor');
+                const taxEl = document.getElementById('tax');
+                const totEstimateEl = document.getElementById('totEstimate');
+                function fmt(n){ return (Math.round(n * 100) / 100).toFixed(2); }
+                if (subPartsEl) subPartsEl.value = fmt(partsSum);
+                if (subLaborEl) subLaborEl.value = fmt(laborSum);
+                const tax = partsSum * 0.06;
+                if (taxEl) taxEl.value = fmt(tax);
+                if (totEstimateEl) totEstimateEl.value = fmt(partsSum + tax);
+              }
+            } catch(e){}
+          }
+        }
+        
+        // set time picker select values (if individual selects exist) by parsing the ticket.timeIn/timeOut
+        function setTimeSelects(prefix, timeStr) {
+          if (!timeStr) return;
+          const parts = timeStr.split(' ');
+          if (parts.length < 2) return;
+          const time = parts[0];
+          const period = parts[1];
+          const [h, m] = time.split(':');
+          const hEl = document.getElementById(prefix + 'Hour');
+          const mEl = document.getElementById(prefix + 'Minute');
+          const pEl = document.getElementById(prefix + 'AmPm');
+          try { if (hEl) { hEl.value = String(parseInt(h,10)); hEl.dispatchEvent(new Event('change')); } } catch(e){}
+          try { if (mEl) { mEl.value = String(m).padStart(2,'0'); mEl.dispatchEvent(new Event('change')); } } catch(e){}
+          try { if (pEl) { pEl.value = period; pEl.dispatchEvent(new Event('change')); } } catch(e){}
+        }
+
+        setTimeSelects('timeIn', ticket.timeIn);
+        setTimeSelects('timeOut', ticket.timeOut);
+      } catch (e) { console.error('Error applying server ticket to form', e); }
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyTicket);
+    else applyTicket();
+  } catch (err) {
+    console.warn('populateFromServerTicket: no server ticket or parse failed', err);
+  }
+})();

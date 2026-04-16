@@ -78,6 +78,10 @@ router.get('/mechanic', (req, res) => {
 
     if (!db) return res.status(500).send('Database not available');
 
+    // treat edit mode: if the query param `edit` is provided, respect it; otherwise default to edit mode for DB-loaded tickets
+    const editParam = typeof req.query.edit !== 'undefined' ? String(req.query.edit).toLowerCase() : undefined;
+    const explicitEdit = typeof editParam === 'undefined' ? true : (editParam === 'true' || editParam === '1' || editParam === 'yes');
+
     db.get('SELECT * FROM tickets WHERE id = ?', [ticketId], (err, ticket) => {
         if (err) {
             console.error('Error fetching ticket:', err);
@@ -97,7 +101,65 @@ router.get('/mechanic', (req, res) => {
                 }
                 ticket.repairs = repairs || [];
                 ticket.vehicle = vehicle || null;
-                return res.render('mechanic', { ticket });
+
+                // scan all user tables and load rows that reference this ticket (by ticket id column)
+                db.all("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", [], (err4, tables) => {
+                    if (err4) {
+                        console.error('Error fetching table list:', err4);
+                        ticket.sections = {};
+                        return res.render('mechanic', { ticket, editMode: explicitEdit });
+                    }
+                    ticket.sections = {};
+                    if (!Array.isArray(tables) || tables.length === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+
+                    // process each table and collect rows where a ticketID-like column equals the ticketId
+                    let pending = tables.length;
+                    tables.forEach(trow => {
+                        const tableName = trow && trow.name;
+                        if (!tableName) {
+                            if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                            return;
+                        }
+
+                        // skip the core tickets table to avoid recursion
+                        if (tableName.toLowerCase() === 'tickets') {
+                            if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                            return;
+                        }
+
+                        // inspect table columns to find a ticket identifier column
+                        db.all(`PRAGMA table_info("${tableName}")`, [], (err5, cols) => {
+                            if (err5 || !Array.isArray(cols)) {
+                                if (err5) console.error('PRAGMA table_info error for', tableName, err5);
+                                if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                return;
+                            }
+
+                            // find a column whose name looks like ticket id (case-insensitive)
+                            const colNames = cols.map(c => c && c.name).filter(Boolean);
+                            const candidate = colNames.find(cn => {
+                                const low = String(cn).toLowerCase();
+                                return low === 'ticketid' || low === 'ticket_id' || (low.includes('ticket') && low.includes('id'));
+                            });
+                            if (!candidate) {
+                                if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                return;
+                            }
+
+                            // query rows matching this ticket id
+                            const q = `SELECT * FROM "${tableName}" WHERE "${candidate}" = ?`;
+                            db.all(q, [ticketId], (err6, rows2) => {
+                                if (err6) {
+                                    console.error('Failed to load rows from', tableName, 'by', candidate, err6);
+                                } else if (rows2 && rows2.length) {
+                                    // attach rows under the table name so client can render appropriately
+                                    ticket.sections[tableName] = rows2;
+                                }
+                                if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                            });
+                        });
+                    });
+                });
             });
         });
     });
@@ -148,6 +210,7 @@ router.post('/mechanic', (req, res) => {
             const insertPlaceholders = Array(insertCols.split(',').length).fill('?').join(', ');
             const insertTicketSql = `INSERT INTO tickets (${insertCols}) VALUES (${insertPlaceholders})`;
             const ticketParams = [roNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus];
+            console.log('Inserting ticket with params:', ticketParams);
 
             db.run(insertTicketSql, ticketParams, function(err) {
                 if (err) {
@@ -158,7 +221,7 @@ router.post('/mechanic', (req, res) => {
                 const ticketId = this.lastID;
                 console.log('Inserted ticket id', ticketId);
 
-                if (!repairs || repairs.length === 0) return res.redirect('/mechanic');
+                if (!repairs || repairs.length === 0) return res.redirect('/mechanic?id=' + ticketId);
 
                 const insertRecSql = `INSERT INTO recRepairs (ticketId, repairDescription, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
                 const stmt = db.prepare(insertRecSql);
@@ -177,7 +240,7 @@ router.post('/mechanic', (req, res) => {
                 });
                 stmt.finalize((err) => {
                     if (err) console.error('Failed finalizing recRepairs stmt:', err);
-                    return res.redirect('/mechanic');
+                    return res.redirect('/mechanic?id=' + ticketId);
                 });
             });
         };
@@ -194,6 +257,71 @@ router.post('/mechanic', (req, res) => {
 });
 });
 
+
+
+router.post('/mechanic/vehicle-info', (req, res) => {
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
+
+    const { ticketId, yearV, make, model, color, vin, mfgdate, engineSize, transType, mileageC, mileageO, dateV, plate, comments } = req.body;
+    if (!ticketId) return res.status(400).json({ success: false, message: 'ticketId is required' });
+
+
+    db.get('SELECT id FROM vechicleInfo WHERE ticketID = ?', [ticketId], (err2, row) => {
+        if (err2) {
+            console.error('DB select error:', err2);
+            return res.status(500).json({ success: false, message: 'DB select error' });
+        }
+
+        if (row) {
+            const upd = `UPDATE vechicleInfo SET yearV=?, make=?, model=?, color=?, vin=?, mfgdate=?, engineSize=?, transType=?, mileageC=?, mileageO=?, dateV=?, plate=?, comments=? WHERE ticketID=?`;
+            const params = [yearV, make, model, color, vin, mfgdate, engineSize, transType, mileageC, mileageO, dateV, plate, comments, ticketId];
+            db.run(upd, params, function (err3) {
+                if (err3) {
+                    console.error('Failed update vechicleInfo:', err3);
+                    return res.status(500).json({ success: false, message: 'Update failed' });
+                }
+                // success: respond with No Content so client can remain unchanged
+                return res.sendStatus(204);
+            });
+        } else {
+            const sql = `INSERT INTO vechicleInfo (ticketID, yearV, make, model, color, vin, mfgdate, engineSize, transType, mileageC, mileageO, dateV, plate, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            const params = [ticketId, yearV, make, model, color, vin, mfgdate, engineSize, transType, mileageC, mileageO, dateV, plate, comments];
+            db.run(sql, params, function (err4) {
+                if (err4) {
+                    console.error('Failed insert vechicleInfo:', err4);
+                    return res.status(500).json({ success: false, message: 'Insert failed' });
+                }
+                // success: respond with No Content so client can remain unchanged
+                return res.sendStatus(204);
+            });
+        }
+    });
+});
+
+
+
+router.post('/upload-video', upload.single('video'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+        
+        console.log('Video uploaded successfully:', req.file.filename);
+        console.log('File size:', req.file.size, 'bytes');
+        console.log('Original name:', req.file.originalname);
+        
+        res.json({ 
+            success: true, 
+            message: 'Video uploaded successfully',
+            filename: req.file.filename,
+            originalName: req.file.originalname
+        });
+    } catch (error) {
+        console.error('Upload error:', error);
+        res.status(500).json({ success: false, message: 'Upload failed' });
+    }
+});
 // video upload route 
 router.post('/upload-video', videoUpload.single('video'), (req, res) => {
     const db = req.app.locals.db;

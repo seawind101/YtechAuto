@@ -16,8 +16,7 @@ const initSqlPath = path.resolve(dataFolderPath, 'database.sql'); // Ensure data
 const sqlCommands = `
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT,
-    fb_id TEXT UNIQUE
+    email TEXT UNIQUE NOT NULL
 );`;
 
 // Only create a new database.sql if one doesn't already exist. Do not overwrite an existing file.

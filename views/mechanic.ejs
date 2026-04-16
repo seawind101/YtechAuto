@@ -7,7 +7,12 @@
   <link rel="stylesheet" href="/css/styles.css">
   <script src="/js/mockup.js"></script>
   <% if (typeof ticket !== 'undefined' && ticket) { %>
-  <script>window.__SERVER_TICKET__ = <%- JSON.stringify(ticket) %>;</script>
+  <script>
+    window.__SERVER_TICKET__ = <%- JSON.stringify(ticket) %>;
+    window.__MECHANIC_EDIT_MODE__ = <%= !!editMode %>;
+  </script>
+  <% } else { %>
+  <script>window.__SERVER_TICKET__ = null; window.__MECHANIC_EDIT_MODE__ = false;</script>
   <% } %>
   <script src="/js/form.js"></script>
 </head>
@@ -18,8 +23,8 @@
   </header>
 
   <main class="main-content">
-    <a href="/" class="back-link">&larr; Back to Home</a>
-    <a href="/ticket" class="btn btn-secondary" style="margin-left:1rem">View your page</a>
+    <a href="/mechanicDis" class="back-link">&larr; Back</a>
+    <a href="/mechanic" class="btn btn-secondary" style="margin-left:1rem">New ticket</a>
     
 
     <!-- Repair Order Section -->
@@ -208,23 +213,24 @@
         <div class="accordion-item">
           <div class="accordion-header" data-accordion="vehicle-info">Vehicle Info</div>
           <div class="accordion-content" id="vehicle-info" style="display:block">
-            <form id="ticket-form" method="POST" action="/mechanic">
+            <form id="vehicle-info-form" method="POST" action="/mechanic/vehicle-info">
+              <input type="hidden" name="ticketId" id="vehicle-ticketId" value="<%= typeof ticket !== 'undefined' && ticket ? ticket.id : '' %>">
               <div class="form-grid">
-                <div class="form-group"><label for="year">Year</label><input id="year" type="text" placeholder="Year"></div>
-                <div class="form-group"><label>Make</label><input type="text" placeholder="Make"></div>
-                <div class="form-group"><label>Model</label><input type="text" placeholder="Model"></div>
-                <div class="form-group"><label>Color</label><input type="text" placeholder="Color"></div>
-                <div class="form-group"><label>VIN</label><input type="text" placeholder="VIN"></div>
-                <div class="form-group"><label>MFG Date</label><input type="text" placeholder="MFG Date"></div>
-                <div class="form-group"><label>Engine Size</label><input type="text" placeholder="Engine Size"></div>
-                <div class="form-group"><label>Trans Type</label><select><option>Auto</option><option>Manual</option><option>N/A</option></select></div>
-                <div class="form-group"><label>Mileage (Current)</label><input type="text" placeholder="Mileage"></div>
-                <div class="form-group"><label>Mileage (Old)</label><input type="text" placeholder="Mileage"></div>
-                <div class="form-group"><label>Date</label><input type="date"></div>
-                <div class="form-group"><label>Plate</label><input type="text" placeholder="Plate"></div>
-                <div class="form-group full-width"><label>Comments</label><input type="text" placeholder="Vehicle comments"></div>
+                <div class="form-group"><label for="yearV">Year</label><input id="yearV" name="yearV" type="text"></div>
+                <div class="form-group"><label for="make">Make</label><input id="make" name="make" type="text"></div>
+                <div class="form-group"><label for="model">Model</label><input id="model" name="model" type="text"></div>
+                <div class="form-group"><label for="color">Color</label><input id="color" name="color" type="text"></div>
+                <div class="form-group"><label for="vin">VIN</label><input id="vin" name="vin" type="text"></div>
+                <div class="form-group"><label for="mfgdate">MFG Date</label><input id="mfgdate" name="mfgdate" type="text"></div>
+                <div class="form-group"><label for="engineSize">Engine Size</label><input id="engineSize" name="engineSize" type="text"></div>
+                <div class="form-group"><label for="transType">Trans Type</label><select id="transType" name="transType"><option>Auto</option><option>Manual</option><option>N/A</option></select></div>
+                <div class="form-group"><label for="mileageC">Mileage (Current)</label><input id="mileageC" name="mileageC" type="text"></div>
+                <div class="form-group"><label for="mileageO">Mileage (Old)</label><input id="mileageO" name="mileageO" type="text"></div>
+                <div class="form-group"><label for="dateV">Date</label><input id="dateV" name="dateV" type="date"></div>
+                <div class="form-group"><label for="plate">Plate</label><input id="plate" name="plate" type="text"></div>
+                <div class="form-group full-width"><label for="comments">Comments</label><input id="comments" name="comments" type="text"></div>
               </div>
-              <button type="button" class="section-save btn btn-secondary" data-section="vehicle-info">Save</button>
+              <button type="submit" class="btn btn-secondary">Save Vehicle Info</button>
             </form>
           </div>
         </div>

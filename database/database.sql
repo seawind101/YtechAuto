@@ -85,9 +85,15 @@ CREATE TABLE tires (
     comments TEXT
 );
 
+CREATE TABLE steeringSuspension (
+    id UNIQUE INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticketID INTEGER NOT NULL,
+    item TEXT NOT NULL
+);
+
 CREATE TABLE steeringSupensionTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticketID INTEGER NOT NULL,
+    steeringSuspensionID INTEGER NOT NULL,
     item TEXT NOT NULL,
     left TEXT,
     right TEXT,

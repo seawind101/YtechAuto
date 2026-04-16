@@ -1009,22 +1009,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   })();
 
-  // --- small helper: wire section Save buttons to submit closest form or trigger partial save ---
-  (function wireSectionSaves() {
-    document.querySelectorAll('.section-save').forEach(btn => {
-      btn.addEventListener('click', function () {
-        // find nearest form inside this accordion content; if none, fallback to main form
-        const section = btn.closest('.accordion-content') || btn.closest('.section');
-        const form = section ? section.querySelector('form') : null;
-        if (form) form.requestSubmit();
-        else {
-          // fallback: submit main repForm
-          const main = document.getElementById('repForm');
-          if (main) main.requestSubmit();
-        }
-      });
-    });
-  })();
 
   // --- Complete Ticket button at bottom wiring ---
   (function wireCompleteTicketBottom() {
@@ -1212,6 +1196,297 @@ document.addEventListener('DOMContentLoaded', function () {
 
         setTimeSelects('timeIn', ticket.timeIn);
         setTimeSelects('timeOut', ticket.timeOut);
+        // populate other sections from ticket.sections by table name
+        try {
+          const sections = ticket.sections || {};
+          const tableKeys = Object.keys(sections || {});
+          if (tableKeys.length) {
+            tableKeys.forEach(tname => {
+              if (!tname) return;
+              const key = String(tname).toLowerCase();
+              const rows = sections[tname] || sections[key] || [];
+              if (!rows || !rows.length) return;
+
+              // helper to set inputs/selects inside a container by matching name/id (case-insensitive)
+              function setFormValuesFromRow(container, row) {
+                try {
+                  const inputs = Array.from(container.querySelectorAll('input,select,textarea'));
+                  Object.keys(row).forEach(k => {
+                    if (k == null) return;
+                    const lk = String(k).toLowerCase();
+                    const v = row[k] == null ? '' : row[k];
+                    // find by name or id (case-insensitive)
+                    const el = inputs.find(i => ((i.name && i.name.toLowerCase() === lk) || (i.id && i.id.toLowerCase() === lk)));
+                    if (el) { try { el.value = v; el.dispatchEvent(new Event('change')); } catch (e) {} }
+                  });
+                } catch (e) { console.warn('setFormValuesFromRow error', e); }
+              }
+
+              // mapping by table name
+              if (key === 'vechicleinfo' || key === 'vehicleinfo' || key === 'vehicle_info') {
+                const form = document.getElementById('vehicle-info-form');
+                if (form) setFormValuesFromRow(form, rows[0]);
+                return;
+              }
+
+              if (key === 'recrepairs' || key === 'recrepair' || key === 'recrepairs' || key === 'recrepairs' || key === 'recrepairs') {
+                // populate repairs table similarly to ticket.repairs
+                const tbody = document.querySelector('#repairs-table tbody');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                rows.forEach(r => {
+                  const tr = document.createElement('tr');
+                  tr.innerHTML = `
+                    <td><input type="text" class="rp-desc" placeholder="Description"></td>
+                    <td><input type="number" min="0" class="rp-qty" placeholder="1" style="width:4em"></td>
+                    <td><input type="text" class="rp-um" placeholder="Part #"></td>
+                    <td><input type="number" min="0" step="0.01" class="rp-partprice" placeholder="0.00"></td>
+                    <td><input type="text" class="rp-partstotal" placeholder="0.00" readonly tabindex="-1" aria-readonly="true"></td>
+                    <td><input type="number" min="0" step="0.01" class="rp-laborhours" placeholder="0.00"></td>
+                    <td><input type="text" class="rp-labortotal" placeholder="0.00" readonly tabindex="-1" aria-readonly="true"></td>
+                    <td><button type="button" class="remove-repair-line">Remove</button></td>
+                  `;
+                  tbody.appendChild(tr);
+                  try { tr.querySelector('.rp-desc').value = r.repairDescription || r.item || ''; } catch(e){}
+                  try { tr.querySelector('.rp-qty').value = r.qty || ''; } catch(e){}
+                  try { tr.querySelector('.rp-um').value = r.partNumber || r.part || ''; } catch(e){}
+                  try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch(e){}
+                  try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch(e){}
+                  try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch(e){}
+                  try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch(e){}
+                  try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch(e){}
+                  try { if (typeof wireRow === 'function') wireRow(tr); } catch(e){}
+                });
+                try { if (typeof updateSubtotals === 'function') updateSubtotals(); } catch(e) {}
+                return;
+              }
+
+              if (key === 'courtytable' || key === 'courtytableitems' || key === 'courtesytable' || key === 'courtesytableitems' || key === 'courtesy') {
+                const courtesySection = document.getElementById('courtesy-check');
+                const table = courtesySection ? courtesySection.querySelector('table') : document.querySelector('#courtesy-table');
+                if (!table) return;
+                const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').trim().toLowerCase());
+                const rowsDom = Array.from(table.querySelectorAll('tbody tr'));
+                rows.forEach(item => {
+                  const name = item.item || item.name || item.label || item.Item || '';
+                  if (!name) return;
+                  let rowDom = rowsDom.find(r => r.dataset && r.dataset.item === name);
+                  if (!rowDom) {
+                    rowDom = rowsDom.find(r => {
+                      const first = r.cells && r.cells[0];
+                      return first && first.textContent && first.textContent.trim() === name.trim();
+                    });
+                  }
+                  if (!rowDom) return;
+                  // status -> second column select, notes -> third column input
+                  try {
+                    const status = item.status || item.Status || '';
+                    const notes = item.notes || item.Notes || item.comments || '';
+                    const sel = rowDom.querySelector('select');
+                    if (sel && status) { sel.value = status; sel.dispatchEvent(new Event('change')); }
+                    const noteIn = rowDom.querySelector('input[type="text"]');
+                    if (noteIn && notes) noteIn.value = notes;
+                  } catch (e) { }
+                });
+                return;
+              }
+
+              if (key === 'tires') {
+                const sec = document.getElementById('tires');
+                if (!sec) return;
+                const groups = Array.from(sec.querySelectorAll('.form-group'));
+                // take first row
+                const r = rows[0];
+                if (!r) return;
+                groups.forEach(g => {
+                  const lab = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
+                  const input = g.querySelector('input,select');
+                  if (!input) return;
+                  if (lab.includes('size')) input.value = r.size || r.Size || '';
+                  else if (lab.includes('speed')) input.value = r.speedRating || r.SpeedRating || r.speedrating || '';
+                  else if (lab.includes('lf')) input.value = r.LF || r.lf || '';
+                  else if (lab.includes('rf')) input.value = r.RF || r.rf || '';
+                  else if (lab.includes('lr')) input.value = r.LR || r.lr || '';
+                  else if (lab.includes('rr')) input.value = r.RR || r.rr || '';
+                  else if (lab.includes('sp')) input.value = r.SP || r.sp || '';
+                  else if (lab.includes('tread')) input.value = r.treadDepth32 || r.treadDepth || r.treadDepth32 || '';
+                  else if (lab.includes('rotation')) input.value = r.rotationDue || r.rotation || '';
+                  else if (lab.includes('balance')) input.value = r.balance || '';
+                  else if (lab.includes('alignment')) input.value = r.alignment || '';
+                  else if (lab.includes('comments')) input.value = r.comments || '';
+                });
+                return;
+              }
+
+              if (key === 'steeringsuspension' || key === 'steeringsupensiontable' || key === 'steering' || key === 'steering_suspension') {
+                const sec = document.getElementById('steering');
+                if (!sec) return;
+                const rowsDom = Array.from(sec.querySelectorAll('tbody tr'));
+                rows.forEach(r => {
+                  const name = r.item || r.Item || r.itemName || r.name || r.label || '';
+                  if (!name) return;
+                  const rowDom = rowsDom.find(rr => (rr.cells && rr.cells[0] && rr.cells[0].textContent && rr.cells[0].textContent.trim() === name.trim()));
+                  if (!rowDom) return;
+                  // set left/right/front/rear if present
+                  try {
+                    ['left','right','front','rear'].forEach(col => {
+                      const val = r[col] || r[col.charAt(0).toUpperCase()+col.slice(1)] || '';
+                      if (!val) return;
+                      // find corresponding cell by header names
+                      const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h=> (h.textContent||'').toLowerCase());
+                      const idx = headerCells.findIndex(h => h.includes(col));
+                      if (idx !== -1 && rowDom.cells[idx]) {
+                        const input = rowDom.cells[idx].querySelector('select, input');
+                        if (input) { input.value = val; input.dispatchEvent(new Event('change')); }
+                      }
+                    });
+                  } catch (e) {}
+                });
+                return;
+              }
+
+              if (key === 'brakestable' || key === 'brakes' || key === 'brakes_table') {
+                const sec = document.getElementById('brakes');
+                if (!sec) return;
+                const rowsDom = Array.from(sec.querySelectorAll('tbody tr'));
+                rows.forEach(r => {
+                  const name = r.item || r.Item || r.itemName || r.name || '';
+                  if (!name) return;
+                  const rowDom = rowsDom.find(rr => (rr.cells && rr.cells[0] && rr.cells[0].textContent && rr.cells[0].textContent.trim() === name.trim()));
+                  if (!rowDom) return;
+                  try {
+                    const actual = r.actual || r.Actual || r.status || r.comments || '';
+                    // Actual is usually third column
+                    const cell = rowDom.cells[2];
+                    if (cell) {
+                      const sel = cell.querySelector('select, input');
+                      if (sel) { sel.value = actual; sel.dispatchEvent(new Event('change')); }
+                    }
+                  } catch (e) {}
+                });
+                return;
+              }
+
+              if (key === 'emissionstable' || key === 'emissions' || key === 'emissions_table') {
+                // emissionsTable -> top emissions list
+                const sec = document.getElementById('emissions');
+                if (!sec) return;
+                const topTable = sec.querySelector('table');
+                if (topTable) {
+                  const rowsDom = Array.from(topTable.querySelectorAll('tbody tr'));
+                  rows.forEach(r => {
+                    const name = r.item || r.Item || r.name || '';
+                    if (!name) return;
+                    const rowDom = rowsDom.find(rr => (rr.cells && rr.cells[0] && rr.cells[0].textContent && rr.cells[0].textContent.trim() === name.trim()));
+                    if (!rowDom) return;
+                    try {
+                      const status = r.status || r.Status || '';
+                      const notes = r.notes || r.Notes || r.comments || '';
+                      const sel = rowDom.querySelector('select'); if (sel && status) { sel.value = status; sel.dispatchEvent(new Event('change')); }
+                      const ni = rowDom.querySelector('input[type="text"]'); if (ni && notes) ni.value = notes;
+                    } catch (e) {}
+                  });
+                }
+                // emissions (form inputs) may exist under 'emissions' table (separate)
+                if (key === 'emissions') {
+                  // rows may represent a single row with form fields
+                  const row = rows[0];
+                  if (row) {
+                    const mapping = {
+                      OBD: ['obd','obd/emissions','obd_emissions','obd'],
+                      inspections: ['inspections','inspection','inspected'],
+                      emissionsDue: ['emissionsdue','emissions_due','emissionsdue'],
+                      nextOilChange: ['nextoilchange','nextOilChange','next_oil_change','nextOilChange'],
+                      inspectedBy: ['inspectedby','inspectedBy','inspected_by'],
+                      reInspectedBy: ['reinspectedby','reInspectedBy','re_inspected_by','reInspectedBy'],
+                      warnings: ['warnings','warnings'],
+                      comments: ['comments','comment']
+                    };
+                    Object.keys(mapping).forEach(k => {
+                      const keys = mapping[k];
+                      let val = '';
+                      for (let i=0;i<keys.length;i++) { if (row[keys[i]] != null) { val = row[keys[i]]; break; } }
+                      if (!val && row[k] != null) val = row[k];
+                      if (val != null && val !== '') {
+                        // find input/select with label matching key
+                        const inputs = Array.from(sec.querySelectorAll('input,select,textarea'));
+                        const found = inputs.find(inp => {
+                          const id = (inp.id||'').toLowerCase(); const name = (inp.name||'').toLowerCase();
+                          return id.includes(k.toLowerCase()) || name.includes(k.toLowerCase());
+                        });
+                        if (found) { try { found.value = val; found.dispatchEvent(new Event('change')); } catch(e){} }
+                      }
+                    });
+                  }
+                }
+                return;
+              }
+
+              if (key === 'warningstable' || key === 'warnings' || key === 'warnings_table') {
+                // populate tags list
+                try {
+                  const tagsHidden = document.getElementById('tags-hidden');
+                  const list = document.getElementById('tag-list');
+                  if (!tagsHidden || !list) return;
+                  const items = rows.map(r => r.item || r.Item || r.name || '').filter(Boolean);
+                  tagsHidden.value = items.join(',');
+                  // render chips
+                  list.innerHTML = '';
+                  items.forEach((t) => {
+                    const chip = document.createElement('div'); chip.className = 'tag-chip'; chip.textContent = t;
+                    const x = document.createElement('button'); x.type='button'; x.className='tag-remove'; x.textContent='×';
+                    x.addEventListener('click', () => { /* no-op on load */ });
+                    chip.appendChild(x); list.appendChild(chip);
+                  });
+                } catch (e) {}
+                return;
+              }
+            });
+          }
+        } catch (err) { console.warn('populate sections error', err); }
+        // populate Digital Courtesy Check from saved sectionData if available
+        try {
+          const sections = ticket.sections || {};
+          const courtesyPayload = sections['courtesy-check'] || sections['digital-courtesy-check'] || sections.courtesy || sections['courtesy'] || null;
+          const items = courtesyPayload && (Array.isArray(courtesyPayload.items) ? courtesyPayload.items : (Array.isArray(courtesyPayload) ? courtesyPayload : null));
+          if (items && items.length) {
+            const courtesySection = document.getElementById('courtesy-check');
+            const table = courtesySection ? courtesySection.querySelector('table') : (document.querySelector('#courtesy-table') || document.querySelector('table[data-section="courtesy-check"]'));
+            if (table) {
+              const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').trim().toLowerCase());
+              const rows = Array.from(table.querySelectorAll('tbody tr'));
+              items.forEach(item => {
+                const name = item.item || item.name || item.label || '';
+                if (!name) return;
+                // find row by data-item attribute or by first cell text
+                let row = rows.find(r => r.dataset && r.dataset.item === name);
+                if (!row) {
+                  row = rows.find(r => {
+                    const first = r.cells && r.cells[0];
+                    return first && first.textContent && first.textContent.trim() === name.trim();
+                  });
+                }
+                if (!row) return;
+                Object.keys(item).forEach(key => {
+                  if (['item','name','label'].includes(key)) return;
+                  const val = item[key];
+                  const headerIndex = headers.findIndex(h => h.includes(key.toLowerCase()) || key.toLowerCase().includes(h));
+                  let cell = null;
+                  if (headerIndex !== -1) cell = row.cells[headerIndex];
+                  if (!cell) {
+                    // fallback: find input/select by name or class
+                    const el = row.querySelector(`[name="${key}"], .${key}`);
+                    if (el) { try { el.value = val; el.dispatchEvent(new Event('change')); } catch (e) {} }
+                    return;
+                  }
+                  const input = cell.querySelector('select, input, textarea');
+                  if (input) { try { input.value = val; input.dispatchEvent(new Event('change')); } catch (e) {} }
+                  else { cell.textContent = val; }
+                });
+              });
+            }
+          }
+        } catch (err) { console.warn('populate courtesy error', err); }
       } catch (e) { console.error('Error applying server ticket to form', e); }
     }
 
@@ -1220,4 +1495,144 @@ document.addEventListener('DOMContentLoaded', function () {
   } catch (err) {
     console.warn('populateFromServerTicket: no server ticket or parse failed', err);
   }
+})();
+
+// --- Enforce mode: when a ticket is loaded but not in edit mode, lock UI to Repair Order only ---
+(function enforceRepairOrderOnlyMode() {
+  function run() {
+    try {
+      const hasTicket = !!window.__SERVER_TICKET__;
+      const editMode = !!window.__MECHANIC_EDIT_MODE__;
+      // allow full interaction only when a ticket is present AND editMode is true
+      if (hasTicket && editMode) return; // editing an existing ticket -> allow full interaction
+      // otherwise lock down so only Repair Order section is interactive (covers new/blank tickets and view-only)
+
+      const main = document.querySelector('main');
+      const allowed = document.getElementById('repForm');
+      if (!main || !allowed) return;
+
+      // disable interactive elements outside the repair-order form
+      const interactive = main.querySelectorAll('input,select,textarea,button, a, [role="button"]');
+      interactive.forEach(el => {
+        try {
+          if (allowed.contains(el)) return; // keep repair order interactive
+          const tag = (el.tagName || '').toLowerCase();
+          if (tag === 'a') {
+            // keep top-level navigation links interactive (back/new ticket) and anything inside the site header
+            const href = el.getAttribute && el.getAttribute('href');
+            const isBack = el.classList && el.classList.contains('back-link');
+            const isNewTicket = href === '/mechanic' || (href && href.indexOf('/mechanic?') === 0);
+            const inHeader = el.closest && el.closest('.site-header');
+            if (isBack || isNewTicket || inHeader) return; // allow interaction for these
+
+            // disable other links by removing href (store it in data-attr)
+            if (el.getAttribute('href')) el.dataset._href = el.getAttribute('href');
+            el.removeAttribute('href');
+            el.style.pointerEvents = 'none';
+            el.style.opacity = '0.6';
+            el.setAttribute('aria-disabled', 'true');
+            return;
+          }
+          // allow interactive elements that live inside the site header (top buttons)
+          if (el.closest && el.closest('.site-header')) return;
+          if ('disabled' in el) el.disabled = true;
+          else el.setAttribute('aria-disabled', 'true');
+          // make unfocusable
+          try { el.tabIndex = -1; } catch (e) {}
+        } catch (e) { /* ignore individual failures */ }
+      });
+
+      // also visually indicate accordion headers are inactive
+      const headers = document.querySelectorAll('.accordion-header');
+      headers.forEach(h => {
+        if (allowed.contains(h)) return;
+        h.style.pointerEvents = 'none';
+        h.style.opacity = '0.6';
+        h.title = 'Locked while viewing a saved ticket';
+      });
+
+      // collapse all accordion contents except repair-order section (if any)
+      document.querySelectorAll('.accordion-content').forEach(c => {
+        if (allowed.contains(c)) return;
+        c.style.display = 'none';
+        c.classList.add('collapsed-content');
+      });
+
+      // explicitly disable media upload controls when in view-only mode
+      const uploadControls = ['video-upload-zone','video-file','upload-trigger','upload-btn','image-upload-zone','image-file','image-upload-trigger','image-upload-btn'];
+      uploadControls.forEach(id => {
+        try {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (allowed.contains(el)) return; // keep if part of repair-order
+          if (el.tagName && el.tagName.toLowerCase() === 'input' && el.type === 'file') {
+            el.disabled = true;
+          } else {
+            el.style.pointerEvents = 'none';
+            el.style.opacity = '0.6';
+            el.setAttribute('aria-disabled', 'true');
+          }
+        } catch (e) { /* ignore per-element failures */ }
+      });
+
+    } catch (err) {
+      console.warn('enforceRepairOrderOnlyMode error', err);
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+
+// --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
+(function wireVehicleInfoForm() {
+  try {
+    const vForm = document.getElementById('vehicle-info-form');
+    if (!vForm) return;
+    vForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // collect form data
+      const fd = new FormData(vForm);
+      const obj = {};
+      for (const [k, v] of fd.entries()) obj[k] = v;
+
+      // ensure there's a ticket id
+      if (!obj.ticketId && !obj.ticketID && !obj.id) {
+        console.error('Cannot save vehicle info: missing ticket id. Save the Repair Order first.');
+        return;
+      }
+
+      try {
+        const res = await fetch(vForm.action || '/mechanic/vehicle-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(obj)
+        });
+        // accept 204 No Content as successful silent save
+        if (res.status === 204) {
+          console.log('Vehicle info saved (204)');
+          return;
+        }
+        if (res.ok) {
+          // attempt to parse JSON success response if server provides it
+          let json = null;
+          try { json = await res.json(); } catch (e) { json = null; }
+          if (json && json.success) {
+            console.log('Vehicle info saved', json);
+            return;
+          }
+          console.error('Vehicle info save: unexpected OK response', res.status, json);
+          return;
+        }
+        // non-OK: try to surface error message
+        let errJson = null;
+        try { errJson = await res.json(); } catch (e) { errJson = null; }
+        console.error('Vehicle info save failed', res.status, errJson);
+      } catch (err) {
+        console.error('Vehicle info save failed', err);
+      }
+    }, { capture: true });
+  } catch (err) { console.warn('wireVehicleInfoForm error', err); }
 })();

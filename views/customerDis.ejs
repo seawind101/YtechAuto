@@ -14,16 +14,16 @@
 
   <main class="landing">
     <a href="/" class="back-link">&larr; Back to Home</a>
-    <a href="/customer" class="btn btn-secondary" style="margin-left:1rem">Temporary View Single Ticket</a>
+    
     
     <h2>Your Repair Tickets</h2>
-    <p>Welcome <strong><%= typeof user !== 'undefined' ? user.email : 'Customer' %></strong>! Here are all your repair tickets:</p>
+    <p>Welcome <strong><%= typeof user !== 'undefined' ? user.email : 'Customer' %></strong>! Here are all your completed repair tickets:</p>
 
     <% if (typeof tickets !== 'undefined' && tickets.length > 0) { %>
         <% tickets.forEach((ticket, index) => { %>
             <section class="section" style="border: 1px solid #ccc; padding: 1rem; margin-top: 1rem; border-radius: 8px;">
                 <h3>Ticket #<%= ticket.id %> 
-                    <span class="status-badge status-<%= ticket.stat === 'Completed' ? 'green' : ticket.stat === 'In Progress' ? 'yellow' : 'red' %>">
+                    <span class="status-badge status-<%= ticket.stat === 'Complete' ? 'green' : ticket.stat === 'open' ? 'yellow' : 'red' %>">
                         <%= ticket.stat %>
                     </span>
                 </h3>

@@ -104,26 +104,60 @@ router.get('/mechanic', (req, res) => {
 
                 // scan all user tables and load rows that reference this ticket (by ticket id column)
                 db.all("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", [], (err4, tables) => {
+                    const renderWithJoinedSections = () => {
+                        const courtesyJoinSql = `
+                          SELECT cti.*, ct.ticketID AS courtesyTicketID, ct.comments AS courtesyComments
+                          FROM courtesyTableItems cti
+                          INNER JOIN courtesyTable ct ON cti.tableID = ct.id
+                          WHERE ct.ticketID = ?
+                          ORDER BY cti.id ASC
+                        `;
+                        const steeringJoinSql = `
+                          SELECT sst.*, ss.ticketID AS steeringTicketID
+                          FROM steeringSupensionTable sst
+                          INNER JOIN steeringSuspensionTable ss ON sst.steeringSuspensionID = ss.id
+                          WHERE ss.ticketID = ?
+                          ORDER BY sst.id ASC
+                        `;
+
+                        db.all(courtesyJoinSql, [ticketId], (cErr, courtesyRows) => {
+                            if (cErr) {
+                                console.error('Error loading courtesy joined rows:', cErr);
+                            } else if (Array.isArray(courtesyRows) && courtesyRows.length) {
+                                ticket.sections.courtesyTableItems = courtesyRows;
+                            }
+
+                            db.all(steeringJoinSql, [ticketId], (sErr, steeringRows) => {
+                                if (sErr) {
+                                    console.error('Error loading steering joined rows:', sErr);
+                                } else if (Array.isArray(steeringRows) && steeringRows.length) {
+                                    ticket.sections.steeringSupensionTable = steeringRows;
+                                }
+                                return res.render('mechanic', { ticket, editMode: explicitEdit });
+                            });
+                        });
+                    };
+
                     if (err4) {
                         console.error('Error fetching table list:', err4);
                         ticket.sections = {};
-                        return res.render('mechanic', { ticket, editMode: explicitEdit });
+                        return renderWithJoinedSections();
                     }
                     ticket.sections = {};
-                    if (!Array.isArray(tables) || tables.length === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                    if (!Array.isArray(tables) || tables.length === 0) return renderWithJoinedSections();
 
                     // process each table and collect rows where a ticketID-like column equals the ticketId
                     let pending = tables.length;
                     tables.forEach(trow => {
                         const tableName = trow && trow.name;
                         if (!tableName) {
-                            if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                            if (--pending === 0) return renderWithJoinedSections();
                             return;
                         }
 
                         // skip the core tickets table to avoid recursion
                         if (tableName.toLowerCase() === 'tickets') {
-                            if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                            if (--pending === 0) return renderWithJoinedSections();
                             return;
                         }
 
@@ -131,7 +165,7 @@ router.get('/mechanic', (req, res) => {
                         db.all(`PRAGMA table_info("${tableName}")`, [], (err5, cols) => {
                             if (err5 || !Array.isArray(cols)) {
                                 if (err5) console.error('PRAGMA table_info error for', tableName, err5);
-                                if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                if (--pending === 0) return renderWithJoinedSections();
                                 return;
                             }
 
@@ -142,7 +176,7 @@ router.get('/mechanic', (req, res) => {
                                 return low === 'ticketid' || low === 'ticket_id' || (low.includes('ticket') && low.includes('id'));
                             });
                             if (!candidate) {
-                                if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                if (--pending === 0) return renderWithJoinedSections();
                                 return;
                             }
 
@@ -155,7 +189,7 @@ router.get('/mechanic', (req, res) => {
                                     // attach rows under the table name so client can render appropriately
                                     ticket.sections[tableName] = rows2;
                                 }
-                                if (--pending === 0) return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                if (--pending === 0) return renderWithJoinedSections();
                             });
                         });
                     });
@@ -298,6 +332,162 @@ router.post('/mechanic/vehicle-info', (req, res) => {
         }
     });
 });
+
+router.post('/mechanic/courtesy-check', (req, res) => {
+  const db = req.app.locals.db;
+  if (!db) return res.status(500).send('Database not available');
+
+    // Accept JSON body { ticketId, items: [ { item, status, notes }, ... ], comments? }
+    // or form field 'payload' containing that JSON string.
+    let ticketId = req.body.ticketId || req.body.ticketID || req.query.ticketId;
+    let items = req.body.items;
+    let comments = req.body.comments || '';
+
+    if (!items && req.body.payload) {
+        try {
+            const payload = typeof req.body.payload === 'string' ? JSON.parse(req.body.payload) : req.body.payload;
+            items = payload.items || payload.data || null;
+            comments = comments || payload.comments || '';
+            ticketId = ticketId || payload.ticketId || payload.ticketID;
+        } catch (e) {
+            console.warn('courtesy-check payload parse failed:', e.message);
+        }
+    }
+
+    if (typeof items === 'string') {
+        try { items = JSON.parse(items); } catch (e) { items = null; }
+    }
+
+    if (!Array.isArray(items)) {
+        const parsed = [];
+        for (let i = 0; ; i++) {
+            const item = req.body[`item_${i}`];
+            const status = req.body[`status_${i}`];
+            const notes = req.body[`notes_${i}`];
+            if (typeof item === 'undefined') break;
+            parsed.push({ item, status: status || '', notes: notes || '' });
+        }
+        items = parsed;
+    }
+
+    if (!ticketId) return res.status(400).json({ success: false, message: 'ticketId required' });
+
+    const normalizedItems = (Array.isArray(items) ? items : []).map((entry) => ({
+        item: (entry.item || entry.name || entry.label || '').toString().trim(),
+        status: (entry.status || entry.state || '').toString().trim(),
+        notes: (entry.notes || entry.note || '').toString().trim()
+    })).filter((entry) => entry.item);
+
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+
+        // delete any prior courtesy rows for this ticket (parent and children)
+        db.all('SELECT id FROM courtesyTable WHERE ticketID = ?', [ticketId], (selErr, parentRows) => {
+            if (selErr) {
+                db.run('ROLLBACK');
+                console.error('courtesy-check parent select failed:', selErr);
+                return res.status(500).json({ success: false, message: 'Failed to load existing courtesy rows' });
+            }
+
+            const parentIds = (parentRows || []).map(r => r.id).filter(Boolean);
+            const deleteChildrenAndParents = (done) => {
+                const deleteParents = () => {
+                    db.run('DELETE FROM courtesyTable WHERE ticketID = ?', [ticketId], (delParentErr) => {
+                        if (delParentErr) return done(delParentErr);
+                        done(null);
+                    });
+                };
+
+                if (!parentIds.length) return deleteParents();
+                let pending = parentIds.length;
+                let hasErrored = false;
+                parentIds.forEach((parentId) => {
+                    db.run('DELETE FROM courtesyTableItems WHERE tableID = ?', [parentId], (delChildErr) => {
+                        if (hasErrored) return;
+                        if (delChildErr) {
+                            hasErrored = true;
+                            return done(delChildErr);
+                        }
+                        pending -= 1;
+                        if (pending === 0) deleteParents();
+                    });
+                });
+            };
+
+            deleteChildrenAndParents((deleteErr) => {
+                if (deleteErr) {
+                    db.run('ROLLBACK');
+                    console.error('courtesy-check delete failed:', deleteErr);
+                    return res.status(500).json({ success: false, message: 'Failed to clear old courtesy rows' });
+                }
+
+                // create one parent row in courtesyTable for this save
+                const parentItemLabel = 'Courtesy Check';
+                db.run(
+                    'INSERT INTO courtesyTable (ticketID, item, comments) VALUES (?, ?, ?)',
+                    [ticketId, parentItemLabel, comments || ''],
+                    function (insertParentErr) {
+                        if (insertParentErr) {
+                            db.run('ROLLBACK');
+                            console.error('courtesy-check parent insert failed:', insertParentErr);
+                            return res.status(500).json({ success: false, message: 'Failed to save courtesy header' });
+                        }
+
+                        const tableID = this.lastID;
+                        if (!normalizedItems.length) {
+                            db.run('COMMIT', (commitErr) => {
+                                if (commitErr) {
+                                    console.error('courtesy-check commit failed:', commitErr);
+                                    return res.status(500).json({ success: false, message: 'Failed to finalize courtesy save' });
+                                }
+                                return res.sendStatus(204);
+                            });
+                            return;
+                        }
+
+                        const stmt = db.prepare('INSERT INTO courtesyTableItems (tableID, item, status, notes) VALUES (?, ?, ?, ?)');
+                        let pendingInserts = normalizedItems.length;
+                        let insertFailed = false;
+
+                        normalizedItems.forEach((entry) => {
+                            stmt.run([tableID, entry.item, entry.status, entry.notes], (itemErr) => {
+                                if (insertFailed) return;
+                                if (itemErr) {
+                                    insertFailed = true;
+                                    stmt.finalize(() => {
+                                        db.run('ROLLBACK');
+                                        console.error('courtesy-check child insert failed:', itemErr);
+                                        return res.status(500).json({ success: false, message: 'Failed to save courtesy items' });
+                                    });
+                                    return;
+                                }
+                                pendingInserts -= 1;
+                                if (pendingInserts === 0) {
+                                    stmt.finalize((finErr) => {
+                                        if (finErr) {
+                                            db.run('ROLLBACK');
+                                            console.error('courtesy-check finalize failed:', finErr);
+                                            return res.status(500).json({ success: false, message: 'Failed to finalize courtesy items' });
+                                        }
+                                        db.run('COMMIT', (commitErr) => {
+                                            if (commitErr) {
+                                                console.error('courtesy-check commit failed:', commitErr);
+                                                return res.status(500).json({ success: false, message: 'Failed to finalize courtesy save' });
+                                            }
+                                            return res.sendStatus(204);
+                                        });
+                                    });
+                                }
+                            });
+                        });
+                    }
+                );
+            });
+        });
+    });
+});
+
+
 // video upload route 
 router.post('/upload-video', videoUpload.single('video'), (req, res) => {
     const db = req.app.locals.db;

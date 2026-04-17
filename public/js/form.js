@@ -1584,6 +1584,86 @@ document.addEventListener('DOMContentLoaded', function () {
   else run();
 })();
 
+// --- Courtesy Check: save all rows (item/status/notes) to /mechanic/courtesy-check ---
+(function wireCourtesyCheckSave() {
+  const bind = function () {
+    try {
+      const saveBtn = document.querySelector('.section-save[data-section="courtesy-check"]');
+      const courtesySection = document.getElementById('courtesy-check');
+      if (!saveBtn || !courtesySection) return;
+      if (saveBtn.dataset.boundCourtesySave === '1') return;
+      saveBtn.dataset.boundCourtesySave = '1';
+
+      saveBtn.addEventListener('click', async function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const ticketId =
+          (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
+          document.getElementById('vehicle-ticketId')?.value ||
+          document.getElementById('ticketId')?.value ||
+          '';
+
+        if (!ticketId) {
+          console.error('Cannot save courtesy check: missing ticket id. Save Repair Order first.');
+          return;
+        }
+
+        const table = courtesySection.querySelector('table');
+        const items = [];
+        if (table) {
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+          rows.forEach((row) => {
+            const item = (row.cells && row.cells[0] ? row.cells[0].textContent : '').trim();
+            const status = (row.querySelector('select')?.value || '').trim();
+            const notes = (row.querySelector('input[type="text"], textarea')?.value || '').trim();
+            if (!item) return;
+            items.push({ item, status, notes });
+          });
+        }
+
+        const commentsInput = courtesySection.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
+        const comments = commentsInput ? (commentsInput.value || '').trim() : '';
+
+        try {
+          const res = await fetch('/mechanic/courtesy-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketId, items, comments })
+          });
+
+          if (res.status === 204) {
+            console.log('Courtesy check saved (204)');
+            return;
+          }
+
+          if (res.ok) {
+            let payload = null;
+            try { payload = await res.json(); } catch (err) { payload = null; }
+            if (payload && payload.success) {
+              console.log('Courtesy check saved');
+              return;
+            }
+            console.warn('Courtesy check save response', res.status, payload);
+            return;
+          }
+
+          let errPayload = null;
+          try { errPayload = await res.json(); } catch (err) { errPayload = null; }
+          console.error('Courtesy check save failed', res.status, errPayload);
+        } catch (err) {
+          console.error('Courtesy check save failed', err);
+        }
+      });
+    } catch (err) {
+      console.warn('wireCourtesyCheckSave error', err);
+    }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
 // --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
 (function wireVehicleInfoForm() {
   try {

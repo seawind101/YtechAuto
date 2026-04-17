@@ -91,7 +91,7 @@ CREATE TABLE steeringSuspension (
     item TEXT NOT NULL
 );
 
-CREATE TABLE steeringSupensionTable (
+CREATE TABLE steeringSuspensionTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     steeringSuspensionID INTEGER NOT NULL,
     item TEXT NOT NULL,

@@ -1288,6 +1288,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (noteIn && notes) noteIn.value = notes;
                   } catch (e) { }
                 });
+                // set parent comments (full-width) if the server provided them via joined rows
+                try {
+                  const parentComments = (rows[0] && (rows[0].courtesyComments || rows[0].comments)) || '';
+                  if (parentComments) {
+                    const commentsInput = (courtesySection && courtesySection.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea')) || document.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
+                    if (commentsInput) {
+                      commentsInput.value = parentComments;
+                    }
+                  }
+                } catch (e) { }
                 return;
               }
 
@@ -1318,14 +1328,38 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
               }
 
-              if (key === 'steeringsuspension' || key === 'steeringsupensiontable' || key === 'steering' || key === 'steering_suspension') {
+              if (key === 'steeringsuspension' || key === 'steeringsuspensiontable' || key === 'steering' || key === 'steering_suspension') {
                 const sec = document.getElementById('steering');
                 if (!sec) return;
                 const rowsDom = Array.from(sec.querySelectorAll('tbody tr'));
+                // helper to normalize labels for tolerant matching
+                const normalize = s => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+                const unmatched = [];
                 rows.forEach(r => {
                   const name = r.item || r.Item || r.itemName || r.name || r.label || '';
                   if (!name) return;
-                  const rowDom = rowsDom.find(rr => (rr.cells && rr.cells[0] && rr.cells[0].textContent && rr.cells[0].textContent.trim() === name.trim()));
+                  const targetNorm = normalize(name);
+                  let rowDom = rowsDom.find(rr => {
+                    try {
+                      const txt = (rr.cells && rr.cells[0] && rr.cells[0].textContent) ? rr.cells[0].textContent : '';
+                      const tnorm = normalize(txt);
+                      return tnorm === targetNorm;
+                    } catch (e) { return false; }
+                  });
+                  if (!rowDom) {
+                    // try partial or reverse match
+                    rowDom = rowsDom.find(rr => {
+                      try {
+                        const txt = (rr.cells && rr.cells[0] && rr.cells[0].textContent) ? rr.cells[0].textContent : '';
+                        const tnorm = normalize(txt);
+                        return tnorm.includes(targetNorm) || targetNorm.includes(tnorm);
+                      } catch (e) { return false; }
+                    });
+                  }
+                  if (!rowDom) {
+                    unmatched.push(name);
+                    return;
+                  }
                   if (!rowDom) return;
                   // set left/right/front/rear if present
                   try {
@@ -1336,12 +1370,65 @@ document.addEventListener('DOMContentLoaded', function () {
                       const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h=> (h.textContent||'').toLowerCase());
                       const idx = headerCells.findIndex(h => h.includes(col));
                       if (idx !== -1 && rowDom.cells[idx]) {
-                        const input = rowDom.cells[idx].querySelector('select, input');
-                        if (input) { input.value = val; input.dispatchEvent(new Event('change')); }
+                        const cell = rowDom.cells[idx];
+                        const input = cell.querySelector('select, input');
+                        if (input) {
+                          try {
+                            input.value = val;
+                            // if direct assign didn't match an option (select stays unchanged), try fuzzy-matching options by text/value
+                            if (input.tagName && input.tagName.toLowerCase() === 'select') {
+                              const cur = input.value;
+                              const norm = s => (s||'').toString().toLowerCase().trim();
+                              if (norm(cur) !== norm(val)) {
+                                const opt = Array.from(input.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
+                                if (opt) input.value = opt.value;
+                              }
+                            }
+                            input.dispatchEvent(new Event('change'));
+                          } catch (e) {
+                            try { input.value = val; input.dispatchEvent(new Event('change')); } catch (e2) { /* ignore */ }
+                          }
+                        } else {
+                          // No input/select in this cell — do not overwrite plain text dashes; try to find a select elsewhere in the row that corresponds to this header
+                          try {
+                            const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h=> (h.textContent||'').toLowerCase());
+                            // find select in same row whose header includes the column name
+                            const sel = Array.from(rowDom.querySelectorAll('select')).find(s => {
+                              try {
+                                const selIdx = Array.from(rowDom.cells).indexOf(s.closest('td'));
+                                const hdr = headerCells[selIdx] || '';
+                                return hdr.includes(col);
+                              } catch (e) { return false; }
+                            });
+                            if (sel) {
+                              try {
+                                sel.value = val;
+                                const norm = s => (s||'').toString().toLowerCase().trim();
+                                if (norm(sel.value) !== norm(val)) {
+                                  const opt = Array.from(sel.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
+                                  if (opt) sel.value = opt.value;
+                                }
+                                sel.dispatchEvent(new Event('change'));
+                              } catch (e) {}
+                            }
+                          } catch (e) { /* ignore fallback */ }
+                        }
                       }
                     });
-                  } catch (e) {}
+                  } catch (e) { }
                 });
+                if (unmatched.length) {
+                  console.warn('Steering populate: unmatched items (no DOM row found):', unmatched);
+                }
+
+                // populate parent comments from the joined rows if present
+                try {
+                  const parentComments = (rows[0] && (rows[0].steeringComments || rows[0].comments)) || '';
+                  if (parentComments) {
+                    const commentsInput = sec.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
+                    if (commentsInput) commentsInput.value = parentComments;
+                  }
+                } catch (e) {}
                 return;
               }
 
@@ -1657,6 +1744,105 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     } catch (err) {
       console.warn('wireCourtesyCheckSave error', err);
+    }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// --- Steering & Suspension: save rows (item/left/right/front/rear) + comments to /mechanic/steering-suspension ---
+(function wireSteeringSave() {
+  const bind = function () {
+    try {
+      const saveBtn = document.querySelector('.section-save[data-section="steering"]');
+      const steeringSection = document.getElementById('steering');
+      if (!saveBtn || !steeringSection) return;
+      if (saveBtn.dataset.boundSteeringSave === '1') return;
+      saveBtn.dataset.boundSteeringSave = '1';
+
+      saveBtn.addEventListener('click', async function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
+        if (!ticketId) {
+          console.error('Cannot save steering-suspension: missing ticket id. Save Repair Order first.');
+          return;
+        }
+
+        const table = steeringSection.querySelector('table');
+        const items = [];
+        if (table) {
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').toLowerCase());
+          // helper to find column index by header keyword
+          const findColIdx = (keywords) => {
+            const k = Array.isArray(keywords) ? keywords : [keywords];
+            return headerCells.findIndex(h => k.some(kw => h.includes(kw)));
+          };
+          const leftIdx = findColIdx(['left']);
+          const rightIdx = findColIdx(['right']);
+          const frontIdx = findColIdx(['front']);
+          const rearIdx = findColIdx(['rear']);
+
+          rows.forEach((row) => {
+            const itemLabel = (row.cells && row.cells[0] ? row.cells[0].textContent : '').trim();
+            if (!itemLabel) return;
+            const getCellValue = (idx) => {
+              try {
+                if (idx === -1 || !row.cells[idx]) return '';
+                const cell = row.cells[idx];
+                const input = cell.querySelector('select, input');
+                if (input) return input.value || '';
+                // if no input, return text content (could be '-')
+                return (cell.textContent || '').trim();
+              } catch (e) { return ''; }
+            };
+
+            const left = getCellValue(leftIdx);
+            const right = getCellValue(rightIdx);
+            const front = getCellValue(frontIdx);
+            const rear = getCellValue(rearIdx);
+            items.push({ item: itemLabel, left, right, front, rear });
+          });
+        }
+
+        const commentsInput = steeringSection.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
+        const comments = commentsInput ? (commentsInput.value || '').trim() : '';
+
+        try {
+          const res = await fetch('/mechanic/steering-suspension', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketId, items, comments })
+          });
+
+          if (res.status === 204) {
+            console.log('Steering & Suspension saved (204)');
+            return;
+          }
+
+          if (res.ok) {
+            let payload = null;
+            try { payload = await res.json(); } catch (err) { payload = null; }
+            if (payload && payload.success) {
+              console.log('Steering & Suspension saved');
+              return;
+            }
+            console.warn('Steering save response', res.status, payload);
+            return;
+          }
+
+          let errPayload = null;
+          try { errPayload = await res.json(); } catch (err) { errPayload = null; }
+          console.error('Steering save failed', res.status, errPayload);
+        } catch (err) {
+          console.error('Steering save failed', err);
+        }
+      });
+    } catch (err) {
+      console.warn('wireSteeringSave error', err);
     }
   };
 

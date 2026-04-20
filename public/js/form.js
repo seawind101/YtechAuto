@@ -1288,6 +1288,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (noteIn && notes) noteIn.value = notes;
                   } catch (e) { }
                 });
+                // set parent comments (full-width) if the server provided them via joined rows
+                try {
+                  const parentComments = (rows[0] && (rows[0].courtesyComments || rows[0].comments)) || '';
+                  if (parentComments) {
+                    const commentsInput = (courtesySection && courtesySection.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea')) || document.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
+                    if (commentsInput) {
+                      commentsInput.value = parentComments;
+                    }
+                  }
+                } catch (e) { }
                 return;
               }
 

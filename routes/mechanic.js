@@ -342,7 +342,8 @@ router.post('/mechanic/courtesy-check', (req, res) => {
     // or form field 'payload' containing that JSON string.
     let ticketId = req.body.ticketId || req.body.ticketID || req.query.ticketId;
     let items = req.body.items;
-    let comments = req.body.comments || '';
+    // accept 'comments' or 'courtesyComments' from client
+    let comments = (typeof req.body.comments !== 'undefined') ? req.body.comments : (req.body.courtesyComments || '');
 
     if (!items && req.body.payload) {
         try {

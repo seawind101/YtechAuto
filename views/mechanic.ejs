@@ -375,21 +375,24 @@
         <div class="accordion-item">
           <div class="accordion-header" data-accordion="tires">Tires</div>
           <div class="accordion-content collapsed-content" id="tires">
-            <div class="form-grid">
-              <div class="form-group"><label>Size</label><input type="text" placeholder="Size"></div>
-              <div class="form-group"><label>Speed Rating</label><input type="text" placeholder="Speed Rating"></div>
-              <div class="form-group"><label>LF</label><input type="text" placeholder="Tread"></div>
-              <div class="form-group"><label>RF</label><input type="text" placeholder="Tread"></div>
-              <div class="form-group"><label>LR</label><input type="text" placeholder="Tread"></div>
-              <div class="form-group"><label>RR</label><input type="text" placeholder="Tread"></div>
-              <div class="form-group"><label>SP</label><input type="text" placeholder="Spare"></div>
-              <div class="form-group"><label>Tread Depth (32nds)</label><input type="text" placeholder="Depth"></div>
-              <div class="form-group"><label>Rotation Due?</label><select><option>Yes</option><option>No</option><option>N/A</option></select></div>
-              <div class="form-group"><label>Balance?</label><select><option>Yes</option><option>No</option><option>N/A</option></select></div>
-              <div class="form-group"><label>Alignment Check?</label><select><option>Yes</option><option>No</option><option>N/A</option></select></div>
-              <div class="form-group full-width"><label>Comments</label><input type="text" placeholder="Tire comments"></div>
-            </div>
-            <button type="button" class="section-save btn btn-secondary" data-section="tires" style="margin-top:8px">Save</button>
+            <form id="tires-form" method="POST" action="/mechanic/tires">
+              <input type="hidden" name="ticketId" id="tires-ticketId" value="<%= typeof ticket !== 'undefined' && ticket ? ticket.id : '' %>">
+              <div class="form-grid">
+          <div class="form-group"><label>Size</label><input type="text" name="tireSize" placeholder="Size" ></div>
+          <div class="form-group"><label>Speed Rating</label><input type="text" name="speedRating" placeholder="Speed Rating"></div>
+          <div class="form-group"><label>LF</label><input type="text" name="tireLF" placeholder="Tread"></div>
+          <div class="form-group"><label>RF</label><input type="text" name="tireRF" placeholder="Tread"></div>
+          <div class="form-group"><label>LR</label><input type="text" name="tireLR" placeholder="Tread"></div>
+          <div class="form-group"><label>RR</label><input type="text" name="tireRR" placeholder="Tread"></div>
+          <div class="form-group"><label>SP</label><input type="text" name="tireSpare" placeholder="Spare"></div>
+          <div class="form-group"><label>Tread Depth (32nds)</label><input type="text" name="treadDepth" placeholder="Depth"></div>
+          <div class="form-group"><label>Rotation Due?</label><select name="rotationDue"><option>Yes</option><option>No</option><option>N/A</option></select></div>
+          <div class="form-group"><label>Balance?</label><select name="balanceDue"><option>Yes</option><option>No</option><option>N/A</option></select></div>
+          <div class="form-group"><label>Alignment Check?</label><select name="alignmentCheck"><option>Yes</option><option>No</option><option>N/A</option></select></div>
+          <div class="form-group full-width"><label>Comments</label><input type="text" name="tireComments" placeholder="Tire comments"></div>
+              </div>
+              <button type="submit" class="section-save btn btn-secondary" style="margin-top:8px">Save</button>
+            </form>
           </div>
         </div>
 
@@ -596,7 +599,7 @@
                 <tr><td>Clamps</td><td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
                 <tr><td>Hangers</td><td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
                 <tr><td>Leaks</td><td><select><option>Red</option><option>Yellow</option><option>Green</option><option>N/A</option></select></td><td><input type="text" placeholder="Notes"></td></tr>
-                </tbody>
+              </tbody>
               </table>
             </div>
 

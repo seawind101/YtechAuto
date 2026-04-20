@@ -1716,3 +1716,63 @@ document.addEventListener('DOMContentLoaded', function () {
     }, { capture: true });
   } catch (err) { console.warn('wireVehicleInfoForm error', err); }
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const tiresForm = document.getElementById('tires-form');
+  if (tiresForm) {
+    tiresForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      // ensure ticketId present
+      const ticketInput = document.getElementById('tires-ticketId');
+      if (!ticketInput || !ticketInput.value) {
+        // try fallback from server ticket object
+        if (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) {
+          if (ticketInput) ticketInput.value = window.__SERVER_TICKET__.id;
+          else tiresForm.appendChild(Object.assign(document.createElement('input'), { type: 'hidden', name: 'ticketId', value: window.__SERVER_TICKET__.id }));
+        } else {
+          console.error('Tires save failed: missing ticketId');
+          alert('Cannot save tires: ticketId missing.');
+          return;
+        }
+      }
+
+      // convert form to plain object and send JSON so server's express.json() can parse it
+      const fd = new FormData(tiresForm);
+      const obj = {};
+      fd.forEach((value, key) => {
+        // handle multiple values for same key
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          if (!Array.isArray(obj[key])) obj[key] = [obj[key]];
+          obj[key].push(value);
+        } else {
+          obj[key] = value;
+        }
+      });
+
+      // ensure ticketId included (fallback to server-injected object)
+      if (!obj.ticketId && window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) obj.ticketId = window.__SERVER_TICKET__.id;
+
+      try {
+        const res = await fetch(tiresForm.action, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(obj)
+        });
+        if (res.status === 204) {
+          console.log('Tires saved (204).');
+          return;
+        }
+        if (!res.ok) throw new Error(`Tires save failed: ${res.status}`);
+        // optionally parse OK JSON
+        let json = null;
+        try { json = await res.json(); } catch (e) { json = null; }
+        console.log('Tires save response', res.status, json);
+      } catch (err) {
+        console.error(err);
+        alert('Tires save failed. See console for details.');
+      }
+    }, { capture: true });
+  }
+});

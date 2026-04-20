@@ -488,6 +488,67 @@ router.post('/mechanic/courtesy-check', (req, res) => {
     });
 });
 
+router.post('/mechanic/tires', (req, res) => {
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+
+    // defensive body normalization: accept req.body (may be undefined), req.query, or JSON string body
+    let body = req.body || {};
+    if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch (e) { body = {}; }
+    }
+    const query = req.query || {};
+
+    const ticketId = body.ticketId || body.ticketID || query.ticketId || query.ticketID;
+    if (!ticketId) return res.status(400).json({ error: 'ticketId is required' });
+
+    // accept multiple possible field names from the client (case-insensitive variations)
+    const size = body.size || body.tireSize || body.Size || null;
+    const speedRating = body.speedRating || body.speed || body.SpeedRating || null;
+    const LF = body.LF || body.tireLF || body.leftFront || null;
+    const RF = body.RF || body.tireRF || body.rightFront || null;
+    const LR = body.LR || body.tireLR || body.leftRear || null;
+    const RR = body.RR || body.tireRR || body.rightRear || null;
+    const SP = body.SP || body.tireSpare || body.spare || null;
+    const treadDepth32 = body.treadDepth32 || body.treadDepth || body.tread || null;
+    const rotationDue = body.rotationDue || body.rotationD || body.rotation || null;
+    const balance = body.balanceDue || body.balanace || body.bal || null;
+    const alignment = body.alignmentCheck || body.alignmentC || body.align || null;
+    const comments = body.tireComments || body.comment || null;
+
+    const params = [size, speedRating, LF, RF, LR, RR, SP, treadDepth32, rotationDue, balance, alignment, comments, ticketId];
+
+    // Check if record already exists
+    db.get('SELECT id FROM tires WHERE ticketID = ?', [ticketId], (err, row) => {
+        if (err) {
+            console.error('Failed to check existing tires info:', err);
+            return res.status(500).json({ error: 'Failed to check existing tires info' });
+        }
+
+        if (row) {
+            // Update existing record
+            const updateSql = `UPDATE tires SET size = ?, speedRating = ?, LF = ?, RF = ?, LR = ?, RR = ?, SP = ?, treadDepth32 = ?, rotationDue = ?, balance = ?, alignment = ?, comments = ? WHERE ticketID = ?`;
+            db.run(updateSql, params, function(err) {
+                if (err) {
+                    console.error('Failed to update tires info:', err);
+                    return res.status(500).json({ error: 'Failed to update tires info' });
+                }
+                return res.sendStatus(204);
+            });
+        } else {
+            // Insert new record
+            const insertSql = `INSERT INTO tires (ticketID, size, speedRating, LF, RF, LR, RR, SP, treadDepth32, rotationDue, balance, alignment, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            const insertParams = [ticketId, ...params.slice(0, -1)];
+            db.run(insertSql, insertParams, function(err) {
+                if (err) {
+                    console.error('Failed to save tires info:', err);
+                    return res.status(500).json({ error: 'Failed to save tires info' });
+                }
+                return res.sendStatus(204);
+            });
+        }
+    });
+});
 
 // video upload route 
 router.post('/upload-video', videoUpload.single('video'), (req, res) => {

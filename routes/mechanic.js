@@ -49,12 +49,12 @@ const imageUpload = multer({
 
 // signature storage + multipart upload route
 const signatureStorage = multer.diskStorage({
-  destination: function (req, file, cb) { cb(null, signatureDir); },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname) || '.png';
-    cb(null, 'signature-' + uniqueSuffix + ext);
-  }
+    destination: function (req, file, cb) { cb(null, signatureDir); },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const ext = path.extname(file.originalname) || '.png';
+        cb(null, 'signature-' + uniqueSuffix + ext);
+    }
 });
 
 const signatureUpload = multer({
@@ -230,65 +230,65 @@ router.post('/mechanic', (req, res) => {
     const ticketParams = [roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate];
 
     db.run(insertTicketSql, ticketParams, function (err) {
-    // Ensure schema has roNum column, then INSERT
-    db.all("PRAGMA table_info('tickets')", [], (err, cols) => {
-        if (err) {
-            console.error('Failed to read tickets table info', err);
-            return res.status(500).send('Database error');
-        }
-        const hasRepairOrderNumber = Array.isArray(cols) && cols.some(c => c && c.name === 'repairOrderNumber');
-        const hasRo = Array.isArray(cols) && cols.some(c => c && c.name === 'roNum');
+        // Ensure schema has roNum column, then INSERT
+        db.all("PRAGMA table_info('tickets')", [], (err, cols) => {
+            if (err) {
+                console.error('Failed to read tickets table info', err);
+                return res.status(500).send('Database error');
+            }
+            const hasRepairOrderNumber = Array.isArray(cols) && cols.some(c => c && c.name === 'repairOrderNumber');
+            const hasRo = Array.isArray(cols) && cols.some(c => c && c.name === 'roNum');
 
-        const chooseAndInsert = (colName) => {
-            const insertCols = `${colName}, date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned, stat`;
-            const insertPlaceholders = Array(insertCols.split(',').length).fill('?').join(', ');
-            const insertTicketSql = `INSERT INTO tickets (${insertCols}) VALUES (${insertPlaceholders})`;
-            const ticketParams = [roNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus];
-            console.log('Inserting ticket with params:', ticketParams);
+            const chooseAndInsert = (colName) => {
+                const insertCols = `${colName}, date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned, stat`;
+                const insertPlaceholders = Array(insertCols.split(',').length).fill('?').join(', ');
+                const insertTicketSql = `INSERT INTO tickets (${insertCols}) VALUES (${insertPlaceholders})`;
+                const ticketParams = [roNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus];
+                console.log('Inserting ticket with params:', ticketParams);
 
-            db.run(insertTicketSql, ticketParams, function(err) {
-                if (err) {
-                    console.error('Failed to insert ticket:', err);
-                    return res.status(500).send('Failed to save ticket');
-                }
+                db.run(insertTicketSql, ticketParams, function (err) {
+                    if (err) {
+                        console.error('Failed to insert ticket:', err);
+                        return res.status(500).send('Failed to save ticket');
+                    }
 
-                const ticketId = this.lastID;
-                console.log('Inserted ticket id', ticketId);
+                    const ticketId = this.lastID;
+                    console.log('Inserted ticket id', ticketId);
 
-                if (!repairs || repairs.length === 0) return res.redirect('/mechanic?id=' + ticketId);
+                    if (!repairs || repairs.length === 0) return res.redirect('/mechanic?id=' + ticketId);
 
-                const insertRecSql = `INSERT INTO recRepairs (ticketId, repairDescription, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-                const stmt = db.prepare(insertRecSql);
-                repairs.forEach(r => {
-                    const desc = r.repairDescription || '';
-                    const qty = Number.isFinite(Number(r.qty)) ? parseInt(r.qty) : (r.qty ? parseInt(r.qty) : 0);
-                    const partNumber = r.partNumber || '';
-                    const partPrice = Number.isFinite(Number(r.partPrice)) ? parseFloat(r.partPrice) : (r.partPrice ? parseFloat(r.partPrice) : 0);
-                    const partsTotal = Number.isFinite(Number(r.partsTotal)) ? parseFloat(r.partsTotal) : (r.partsTotal ? parseFloat(r.partsTotal) : (qty * partPrice));
-                    const laborHours = Number.isFinite(Number(r.laborHours)) ? parseFloat(r.laborHours) : (r.laborHours ? parseFloat(r.laborHours) : 0);
-                    const laborTotal = Number.isFinite(Number(r.laborTotal)) ? parseFloat(r.laborTotal) : (r.laborTotal ? parseFloat(r.laborTotal) : (laborHours * 100));
+                    const insertRecSql = `INSERT INTO recRepairs (ticketId, repairDescription, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+                    const stmt = db.prepare(insertRecSql);
+                    repairs.forEach(r => {
+                        const desc = r.repairDescription || '';
+                        const qty = Number.isFinite(Number(r.qty)) ? parseInt(r.qty) : (r.qty ? parseInt(r.qty) : 0);
+                        const partNumber = r.partNumber || '';
+                        const partPrice = Number.isFinite(Number(r.partPrice)) ? parseFloat(r.partPrice) : (r.partPrice ? parseFloat(r.partPrice) : 0);
+                        const partsTotal = Number.isFinite(Number(r.partsTotal)) ? parseFloat(r.partsTotal) : (r.partsTotal ? parseFloat(r.partsTotal) : (qty * partPrice));
+                        const laborHours = Number.isFinite(Number(r.laborHours)) ? parseFloat(r.laborHours) : (r.laborHours ? parseFloat(r.laborHours) : 0);
+                        const laborTotal = Number.isFinite(Number(r.laborTotal)) ? parseFloat(r.laborTotal) : (r.laborTotal ? parseFloat(r.laborTotal) : (laborHours * 100));
 
-                    stmt.run([ticketId, desc, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal], (err) => {
-                        if (err) console.error('Failed to insert recRepair row:', err);
+                        stmt.run([ticketId, desc, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal], (err) => {
+                            if (err) console.error('Failed to insert recRepair row:', err);
+                        });
+                    });
+                    stmt.finalize((err) => {
+                        if (err) console.error('Failed finalizing recRepairs stmt:', err);
+                        return res.redirect('/mechanic?id=' + ticketId);
                     });
                 });
-                stmt.finalize((err) => {
-                    if (err) console.error('Failed finalizing recRepairs stmt:', err);
-                    return res.redirect('/mechanic?id=' + ticketId);
-                });
+            };
+
+            if (hasRepairOrderNumber) return chooseAndInsert('repairOrderNumber');
+            if (hasRo) return chooseAndInsert('roNum');
+
+            // prefer adding repairOrderNumber to match existing schema expectations
+            db.run("ALTER TABLE tickets ADD COLUMN repairOrderNumber TEXT", [], (err2) => {
+                if (err2) console.error('Failed to add repairOrderNumber column to tickets table', err2);
+                chooseAndInsert('repairOrderNumber');
             });
-        };
-
-        if (hasRepairOrderNumber) return chooseAndInsert('repairOrderNumber');
-        if (hasRo) return chooseAndInsert('roNum');
-
-        // prefer adding repairOrderNumber to match existing schema expectations
-        db.run("ALTER TABLE tickets ADD COLUMN repairOrderNumber TEXT", [], (err2) => {
-            if (err2) console.error('Failed to add repairOrderNumber column to tickets table', err2);
-            chooseAndInsert('repairOrderNumber');
         });
     });
-});
 });
 
 
@@ -334,8 +334,8 @@ router.post('/mechanic/vehicle-info', (req, res) => {
 });
 
 router.post('/mechanic/courtesy-check', (req, res) => {
-  const db = req.app.locals.db;
-  if (!db) return res.status(500).send('Database not available');
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).send('Database not available');
 
     // Accept JSON body { ticketId, items: [ { item, status, notes }, ... ], comments? }
     // or form field 'payload' containing that JSON string.

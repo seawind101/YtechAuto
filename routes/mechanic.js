@@ -114,8 +114,8 @@ router.get('/mechanic', (req, res) => {
                         `;
                         const steeringJoinSql = `
                           SELECT sst.*, ss.ticketID AS steeringTicketID
-                          FROM steeringSupensionTable sst
-                          INNER JOIN steeringSuspensionTable ss ON sst.steeringSuspensionID = ss.id
+                          FROM steeringSuspensionTable sst
+                          INNER JOIN steeringSuspension ss ON sst.steeringSuspensionID = ss.id
                           WHERE ss.ticketID = ?
                           ORDER BY sst.id ASC
                         `;
@@ -130,8 +130,9 @@ router.get('/mechanic', (req, res) => {
                             db.all(steeringJoinSql, [ticketId], (sErr, steeringRows) => {
                                 if (sErr) {
                                     console.error('Error loading steering joined rows:', sErr);
-                                } else if (Array.isArray(steeringRows) && steeringRows.length) {
-                                    ticket.sections.steeringSupensionTable = steeringRows;
+                                } else {
+                                    ticket.sections = ticket.sections || {};
+                                    ticket.sections.steeringSuspensionTable = steeringRows || [];
                                 }
                                 return res.render('mechanic', { ticket, editMode: explicitEdit });
                             });

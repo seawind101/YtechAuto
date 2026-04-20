@@ -12,6 +12,63 @@ fs.mkdirSync(videoDir, { recursive: true });
 fs.mkdirSync(imageDir, { recursive: true });
 fs.mkdirSync(signatureDir, { recursive: true });
 
+// save signature dataURL to signatures table (insert -> write -> update)
+async function saveSignatureFromDataUrl(db, dataUrl, clientName) {
+    return new Promise((resolve, reject) => {
+        if (!dataUrl || typeof dataUrl !== 'string') return resolve(null);
+        const comma = dataUrl.indexOf(',');
+        if (comma === -1) return resolve(null);
+        const b64 = dataUrl.slice(comma + 1);
+        let buffer;
+        try { buffer = Buffer.from(b64, 'base64'); } catch (e) { return resolve(null); }
+
+        const ensureSql = `
+          CREATE TABLE IF NOT EXISTS signatures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticketID INTEGER,
+            filename TEXT NOT NULL,
+            originalName TEXT NOT NULL,
+            relativePath TEXT NOT NULL,
+            uploadDate TEXT DEFAULT (datetime('now'))
+          )`;
+        db.run(ensureSql, (ensureErr) => {
+            if (ensureErr) return reject(ensureErr);
+
+            const tempName = `signature-pending-${Date.now()}.tmp`;
+            const tempRel = path.join('upload', 'signatures', tempName).split(path.sep).join('/');
+            const insertSql = `INSERT INTO signatures (ticketID, filename, originalName, relativePath, uploadDate)
+                               VALUES (?, ?, ?, ?, datetime('now'))`;
+            db.run(insertSql, [null, tempName, clientName || tempName, tempRel], function (insertErr) {
+                if (insertErr) return reject(insertErr);
+                const sigId = this.lastID;
+                const finalName = (clientName && path.basename(String(clientName))) || `signature-${sigId}.png`;
+                const savePath = path.join(signatureDir, finalName);
+                fs.writeFile(savePath, buffer, (writeErr) => {
+                    if (writeErr) {
+                        // remove placeholder row on failure
+                        db.run('DELETE FROM signatures WHERE id = ?', [sigId], () => {
+                            return reject(writeErr);
+                        });
+                        return;
+                    }
+                    const relPath = path.relative(path.join(__dirname, '..'), savePath).split(path.sep).join('/');
+                    const updateSql = `UPDATE signatures SET filename = ?, relativePath = ? WHERE id = ?`;
+                    db.run(updateSql, [finalName, relPath, sigId], function (updErr) {
+                        if (updErr) {
+                            try { fs.unlinkSync(savePath); } catch (e) { /* ignore */ }
+                            db.run('DELETE FROM signatures WHERE id = ?', [sigId], () => {
+                                return reject(updErr);
+                            });
+                            return;
+                        }
+                        return resolve({ id: sigId, filename: finalName, relativePath: relPath });
+                    });
+                });
+            });
+        });
+    });
+}
+
 // video storage
 const videoStorage = multer.diskStorage({
     destination: function (req, file, cb) { cb(null, videoDir); },
@@ -29,7 +86,7 @@ const videoUpload = multer({
     }
 });
 
-// image storage (matches video flow, uses field name 'image')
+// image storage 
 const imageStorage = multer.diskStorage({
     destination: function (req, file, cb) { cb(null, imageDir); },
     filename: function (req, file, cb) {
@@ -47,19 +104,20 @@ const imageUpload = multer({
     }
 });
 
-// signature storage + multipart upload route
+// signature storage 
 const signatureStorage = multer.diskStorage({
     destination: function (req, file, cb) { cb(null, signatureDir); },
     filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const ext = path.extname(file.originalname) || '.png';
-        cb(null, 'signature-' + uniqueSuffix + ext);
+        let name = (req.body && req.body.signatureFilename) || file.originalname || 'signature.png';
+        name = path.basename(String(name));
+        name = name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 255);
+        cb(null, name);
     }
 });
 
 const signatureUpload = multer({
     storage: signatureStorage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
     fileFilter: function (req, file, cb) {
         if (file.mimetype && file.mimetype.startsWith('image/')) cb(null, true);
         else cb(new Error('Only image files are allowed'));
@@ -200,26 +258,38 @@ router.get('/mechanic', (req, res) => {
     });
 });
 
-router.post('/mechanic', (req, res) => {
-    // collect fields
-    const roNum = req.body.roNum;
-    const roDate = req.body.roDate;
-    const technician = req.body.technician;
-    const timeArrive = req.body.timeIn;
-    const timeOut = req.body.timeOut;
-    const totTime = req.body.totTime;
-    const custName = req.body.custName;
-    const custAdd = req.body.custAddress;
-    const custPhone = req.body.custPhone;
-    const custEmail = req.body.custEmail;
-    const concern = req.body.concern;
-    const diagnosis = req.body.diagnosis;
-    const sDate = req.body.sDate;
-    const signature = req.body.signature;
-    const ticketStatus = req.body.ticketStatus || 'open';
+router.post('/mechanic', async (req, res) => {
+     // collect fields
+     const roNum = req.body.roNum;
+     const roDate = req.body.roDate;
+     const technician = req.body.technician;
+     const timeArrive = req.body.timeIn;
+     const timeOut = req.body.timeOut;
+     const totTime = req.body.totTime;
+     const custName = req.body.custName;
+     const custAdd = req.body.custAddress;
+     const custPhone = req.body.custPhone;
+     const custEmail = req.body.custEmail;
+     const concern = req.body.concern;
+     const diagnosis = req.body.diagnosis;
+     const sDate = req.body.sDate;
+     const signature = req.body.signature;
+     const ticketStatus = req.body.ticketStatus || 'open';
 
-    const db = req.app.locals.db;
-    if (!db) return res.status(500).send('Database not available');
+     const db = req.app.locals.db;
+     if (!db) return res.status(500).send('Database not available');
+
+    // try to save signature first (uses req.body.signature dataURL if present)
+    let savedSignature = null;
+    try {
+        if (signature) {
+            savedSignature = await saveSignatureFromDataUrl(db, signature, req.body.signatureFilename || req.body.signatureFileName || 'signature.png');
+            if (savedSignature) console.log('Saved signature before ticket insert:', savedSignature);
+        }
+    } catch (sigErr) {
+        console.error('Failed to save signature before ticket insert:', sigErr);
+        return res.status(500).send('Failed to save signature');
+    }
 
     // parse repairs
     let repairs = [];
@@ -239,13 +309,19 @@ router.post('/mechanic', (req, res) => {
             }
             const hasRepairOrderNumber = Array.isArray(cols) && cols.some(c => c && c.name === 'repairOrderNumber');
             const hasRo = Array.isArray(cols) && cols.some(c => c && c.name === 'roNum');
-
+            const hasCustomerSignature = Array.isArray(cols) && cols.some(c => c && c.name === 'customerSignature');
             const chooseAndInsert = (colName) => {
-                const insertCols = `${colName}, date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned, stat`;
+                // include customerSignature column if present
+                const extraCol = hasCustomerSignature ? ', customerSignature' : '';
+                const insertCols = `${colName}, date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned${extraCol}, stat`;
                 const insertPlaceholders = Array(insertCols.split(',').length).fill('?').join(', ');
                 const insertTicketSql = `INSERT INTO tickets (${insertCols}) VALUES (${insertPlaceholders})`;
-                const ticketParams = [roNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus];
-                console.log('Inserting ticket with params:', ticketParams);
+                const ticketParams = [roNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate];
+                if (hasCustomerSignature) {
+                    ticketParams.push(savedSignature ? savedSignature.relativePath : null);
+                }
+                ticketParams.push(ticketStatus);
+                 console.log('Inserting ticket with params:', ticketParams);
 
                 db.run(insertTicketSql, ticketParams, function (err) {
                     if (err) {
@@ -555,7 +631,7 @@ router.post('/upload-image', imageUpload.array('image'), (req, res) => {
     });
 });
 
-//signitures upload route
+//signatures upload route
 router.post('/upload-signature', signatureUpload.single('signature'), (req, res) => {
     const db = req.app.locals.db;
     if (!db) {

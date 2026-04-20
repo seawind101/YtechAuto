@@ -805,42 +805,37 @@ document.addEventListener('DOMContentLoaded', function () {
         return false;
       }
 
-      // all good -> upload signature (so server stores PNG) then submit
+      // upload signature (so server stores PNG) then submit
       if (signatureData && signatureData.value) {
         try {
-          // do not upload from client. create filename/path and leave dataURL in signatureData.
-          // server can save the dataURL to disk using these values when processing the form.
-          const fileInfo = createSignatureFileInfo();
-          // ensure hidden inputs for server-side form processing
-          let sigFileEl = document.getElementById('signatureFilename');
+          // put the dataURL into a hidden input named "signature" so router.post('/mechanic') can save it
+          let sigEl = document.querySelector('input[name="signature"]') || document.getElementById('signature');
+          if (!sigEl) {
+            sigEl = document.createElement('input');
+            sigEl.type = 'hidden';
+            sigEl.name = 'signature';
+            sigEl.id = 'signature';
+            form.appendChild(sigEl);
+          }
+          sigEl.value = signatureData.value;
+
+          // optionally include client filename (server will sanitize/use or ignore)
+          let sigFileEl = document.querySelector('input[name="signatureFilename"]') || document.getElementById('signatureFilename');
           if (!sigFileEl) {
             sigFileEl = document.createElement('input');
             sigFileEl.type = 'hidden';
-            sigFileEl.id = 'signatureFilename';
             sigFileEl.name = 'signatureFilename';
+            sigFileEl.id = 'signatureFilename';
             form.appendChild(sigFileEl);
           }
-          let sigPathEl = document.getElementById('signaturePath');
-          if (!sigPathEl) {
-            sigPathEl = document.createElement('input');
-            sigPathEl.type = 'hidden';
-            sigPathEl.id = 'signaturePath';
-            sigPathEl.name = 'signaturePath';
-            form.appendChild(sigPathEl);
-          }
-          // ensure signatureData contains the PNG dataURL; if not, create from canvas
-          const canvas = document.getElementById('signatureCanvas');
-          if ((!signatureData.value || signatureData.value === '') && canvas) {
-            try { signatureData.value = canvas.toDataURL('image/png'); } catch (e) { /* ignore */ }
-          }
-          sigFileEl.value = fileInfo.filename;
-          sigPathEl.value = fileInfo.relativePath;
+          if (!sigFileEl.value) sigFileEl.value = (createSignatureFileInfo && createSignatureFileInfo().filename) || 'signature.png';
+
         } catch (err) {
-          console.error('Signature processing failed:', err);
-          showErrors(['Failed to process signature. Please try again.']);
+          console.error('Signature upload failed:', err);
+          showErrors(['Failed to upload signature. Please try again.']);
           return false;
         }
-      } // end if (signatureData && signatureData.value)
+      }
 
       // If completing the ticket, enforce full Digital Courtesy Check validation
       const ticketStatusEl = document.getElementById('ticketStatus');

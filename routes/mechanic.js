@@ -170,13 +170,13 @@ router.get('/mechanic', (req, res) => {
                           WHERE ct.ticketID = ?
                           ORDER BY cti.id ASC
                         `;
-                        const steeringJoinSql = `
-                          SELECT sst.*, ss.ticketID AS steeringTicketID
-                          FROM steeringSuspensionTable sst
-                          INNER JOIN steeringSuspension ss ON sst.steeringSuspensionID = ss.id
-                          WHERE ss.ticketID = ?
-                          ORDER BY sst.id ASC
-                        `;
+                                                const steeringJoinSql = `
+                                                    SELECT sst.*, ss.ticketID AS steeringTicketID, ss.comments AS steeringComments
+                                                    FROM steeringSuspensionTable sst
+                                                    INNER JOIN steeringSuspension ss ON sst.steeringSuspensionID = ss.id
+                                                    WHERE ss.ticketID = ?
+                                                    ORDER BY sst.id ASC
+                                                `;
 
                         db.all(courtesyJoinSql, [ticketId], (cErr, courtesyRows) => {
                             if (cErr) {
@@ -418,7 +418,8 @@ router.post('/mechanic/courtesy-check', (req, res) => {
     // or form field 'payload' containing that JSON string.
     let ticketId = req.body.ticketId || req.body.ticketID || req.query.ticketId;
     let items = req.body.items;
-    let comments = req.body.comments || '';
+    // accept 'comments' or 'courtesyComments' from client
+    let comments = (typeof req.body.comments !== 'undefined') ? req.body.comments : (req.body.courtesyComments || '');
 
     if (!items && req.body.payload) {
         try {
@@ -564,6 +565,184 @@ router.post('/mechanic/courtesy-check', (req, res) => {
     });
 });
 
+router.post('/mechanic/tires', (req, res) => {
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+
+    // defensive body normalization: accept req.body (may be undefined), req.query, or JSON string body
+    let body = req.body || {};
+    if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch (e) { body = {}; }
+    }
+    const query = req.query || {};
+
+    const ticketId = body.ticketId || body.ticketID || query.ticketId || query.ticketID;
+    if (!ticketId) return res.status(400).json({ error: 'ticketId is required' });
+
+    // accept multiple possible field names from the client (case-insensitive variations)
+    const size = body.size || body.tireSize || body.Size || null;
+    const speedRating = body.speedRating || body.speed || body.SpeedRating || null;
+    const LF = body.LF || body.tireLF || body.leftFront || null;
+    const RF = body.RF || body.tireRF || body.rightFront || null;
+    const LR = body.LR || body.tireLR || body.leftRear || null;
+    const RR = body.RR || body.tireRR || body.rightRear || null;
+    const SP = body.SP || body.tireSpare || body.spare || null;
+    const treadDepth32 = body.treadDepth32 || body.treadDepth || body.tread || null;
+    const rotationDue = body.rotationDue || body.rotationD || body.rotation || null;
+    const balance = body.balanceDue || body.balanace || body.bal || null;
+    const alignment = body.alignmentCheck || body.alignmentC || body.align || null;
+    const comments = body.tireComments || body.comment || null;
+
+    const params = [size, speedRating, LF, RF, LR, RR, SP, treadDepth32, rotationDue, balance, alignment, comments, ticketId];
+
+    // Check if record already exists
+    db.get('SELECT id FROM tires WHERE ticketID = ?', [ticketId], (err, row) => {
+        if (err) {
+            console.error('Failed to check existing tires info:', err);
+            return res.status(500).json({ error: 'Failed to check existing tires info' });
+        }
+
+        if (row) {
+            // Update existing record
+            const updateSql = `UPDATE tires SET size = ?, speedRating = ?, LF = ?, RF = ?, LR = ?, RR = ?, SP = ?, treadDepth32 = ?, rotationDue = ?, balance = ?, alignment = ?, comments = ? WHERE ticketID = ?`;
+            db.run(updateSql, params, function(err) {
+                if (err) {
+                    console.error('Failed to update tires info:', err);
+                    return res.status(500).json({ error: 'Failed to update tires info' });
+                }
+                return res.sendStatus(204);
+            });
+        } else {
+            // Insert new record
+            const insertSql = `INSERT INTO tires (ticketID, size, speedRating, LF, RF, LR, RR, SP, treadDepth32, rotationDue, balance, alignment, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            const insertParams = [ticketId, ...params.slice(0, -1)];
+            db.run(insertSql, insertParams, function(err) {
+                if (err) {
+                    console.error('Failed to save tires info:', err);
+                    return res.status(500).json({ error: 'Failed to save tires info' });
+                }
+                return res.sendStatus(204);
+            });
+        }
+    });
+});
+
+
+router.post('/mechanic/steering-suspension', (req, res) => {
+  const db = req.app.locals.db;
+  if (!db) return res.status(500).send('Database not available');
+
+  // normalize body / payload
+  let body = req.body || {};
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (e) { body = {}; }
+  }
+    // allow JSON payload or form fields
+    const ticketId = body.ticketId || body.ticketID || req.query.ticketId || null;
+    let items = body.items || null;
+    // accept comments from client
+    const comments = (typeof body.comments !== 'undefined') ? body.comments : (body.comment || null);
+
+  if (body.payload && !items) {
+    try {
+      const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload;
+      items = p.items || p.rows || null;
+    } catch (e) { /* ignore */ }
+  }
+
+  // fallback parse sequential form fields item_0,left_0,...
+  if (!Array.isArray(items)) {
+    const parsed = [];
+    for (let i = 0;; i++) {
+      const item = body[`item_${i}`];
+      if (typeof item === 'undefined') break;
+      parsed.push({
+        item: item,
+        left: body[`left_${i}`] || '',
+        right: body[`right_${i}`] || '',
+        front: body[`front_${i}`] || '',
+        rear: body[`rear_${i}`] || ''
+      });
+    }
+    if (parsed.length) items = parsed;
+  }
+
+  if (!ticketId) return res.status(400).send('ticketId required');
+  items = Array.isArray(items) ? items : [];
+
+  db.serialize(() => {
+    // find or create parent steeringSuspension row for this ticket
+    db.get('SELECT id FROM steeringSuspension WHERE ticketID = ?', [ticketId], (err, row) => {
+      if (err) {
+        console.error('Find steering parent error:', err);
+        return res.status(500).send('DB error');
+      }
+
+      const createChildren = (parentId) => {
+        // delete existing children
+        db.run('DELETE FROM steeringSuspensionTable WHERE steeringSuspensionID = ?', [parentId], (delErr) => {
+          if (delErr) console.warn('Failed to delete old steering children:', delErr);
+
+          const stmt = db.prepare('INSERT INTO steeringSuspensionTable (steeringSuspensionID, item, left, right, front, rear) VALUES (?, ?, ?, ?, ?, ?)');
+          for (const it of items) {
+            const label = (it.item || it.name || '').toString();
+            const left = (it.left || it.L || it.Left || '').toString();
+            const right = (it.right || it.R || it.Right || '').toString();
+            const front = (it.front || it.Front || '').toString();
+            const rear = (it.rear || it.Rear || '').toString();
+            stmt.run([parentId, label, left, right, front, rear]);
+          }
+                    stmt.finalize((finalErr) => {
+                        if (finalErr) {
+                            console.error('Failed insert steering children:', finalErr);
+                            return res.status(500).send('DB insert error');
+                        }
+                        // update parent comments if provided and column exists (or add it)
+                        if (typeof comments !== 'undefined' && comments !== null && comments !== '') {
+                            db.all(`PRAGMA table_info('steeringSuspension')`, [], (piErr, cols) => {
+                                if (piErr) {
+                                    console.warn('PRAGMA error checking steeringSuspension columns', piErr);
+                                    return res.sendStatus(204);
+                                }
+                                const hasComments = Array.isArray(cols) && cols.find(c => String(c.name).toLowerCase() === 'comments');
+                                const finalizeResponse = () => res.sendStatus(204);
+                                if (!hasComments) {
+                                    db.run("ALTER TABLE steeringSuspension ADD COLUMN comments TEXT", [], (altErr) => {
+                                        if (altErr) console.warn('Failed to add comments column to steeringSuspension', altErr);
+                                        db.run('UPDATE steeringSuspension SET comments = ? WHERE id = ?', [comments, parentId], (upErr) => {
+                                            if (upErr) console.warn('Failed to update steering parent comments', upErr);
+                                            return finalizeResponse();
+                                        });
+                                    });
+                                } else {
+                                    db.run('UPDATE steeringSuspension SET comments = ? WHERE id = ?', [comments, parentId], (upErr) => {
+                                        if (upErr) console.warn('Failed to update steering parent comments', upErr);
+                                        return finalizeResponse();
+                                    });
+                                }
+                            });
+                        } else {
+                            return res.sendStatus(204);
+                        }
+                    });
+        });
+      };
+
+      if (row && row.id) {
+        createChildren(row.id);
+      } else {
+        // insert parent
+        db.run('INSERT INTO steeringSuspension (ticketID, item) VALUES (?, ?)', [ticketId, 'Steering & Suspension'], function (insErr) {
+          if (insErr) {
+            console.error('Failed create steering parent:', insErr);
+            return res.status(500).send('DB insert error');
+          }
+          createChildren(this.lastID);
+        });
+      }
+    });
+  });
+});
 
 // video upload route 
 router.post('/upload-video', videoUpload.single('video'), (req, res) => {

@@ -668,6 +668,14 @@ router.post('/mechanic/steering-suspension', (req, res) => {
   });
 });
 
+router.post('/mechanic/brakes', (req, res) => {
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+    const ticketId = req.body.ticketId || req.body.ticketID || req.query.ticketId || req.query.ticketID;
+    if (!ticketId) return res.status(400).json({ error: 'ticketId is required' });
+
+    const 
+
 // video upload route 
 router.post('/upload-video', videoUpload.single('video'), (req, res) => {
     const db = req.app.locals.db;

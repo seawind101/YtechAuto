@@ -88,7 +88,8 @@ CREATE TABLE tires (
 CREATE TABLE steeringSuspension (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
-    item TEXT NOT NULL
+    item TEXT NOT NULL,
+    comments
 );
 
 CREATE TABLE steeringSuspensionTable (
@@ -101,14 +102,19 @@ CREATE TABLE steeringSuspensionTable (
     rear TEXT
 );
 
-CREATE TABLE brakesTable (
+CREATE TABLE brakes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
     item TEXT NOT NULL,
-    Spec TEXT NOT NULL,
-    actual TEXT NOT NULL,
-    status TEXT,
-    comments TEXT
+    comments
+);
+
+CREATE TABLE brakesTable (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    brakesID INTEGER NOT NULL,
+    item TEXT NOT NULL,
+    Spec TEXT,
+    actual TEXT
 );
 
 CREATE TABLE emissionsTable (

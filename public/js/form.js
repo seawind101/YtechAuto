@@ -1431,21 +1431,78 @@ document.addEventListener('DOMContentLoaded', function () {
                 const sec = document.getElementById('brakes');
                 if (!sec) return;
                 const rowsDom = Array.from(sec.querySelectorAll('tbody tr'));
+                // helper to normalize labels
+                const normalize = s => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+                // find header indexes
+                const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent||'').toLowerCase());
+                const findIdx = (keys) => {
+                  const ks = Array.isArray(keys) ? keys : [keys];
+                  return headerCells.findIndex(h => ks.some(k => h.includes(k)));
+                };
+                const specIdx = findIdx(['spec']);
+                const actualIdx = findIdx(['actual','value']);
+                const statusIdx = findIdx(['status']);
+                const commentsIdx = findIdx(['comment','notes','note']);
+
+                const unmatched = [];
                 rows.forEach(r => {
-                  const name = r.item || r.Item || r.itemName || r.name || '';
+                  const name = r.item || r.Item || r.itemName || r.name || r.label || '';
                   if (!name) return;
-                  const rowDom = rowsDom.find(rr => (rr.cells && rr.cells[0] && rr.cells[0].textContent && rr.cells[0].textContent.trim() === name.trim()));
-                  if (!rowDom) return;
-                  try {
-                    const actual = r.actual || r.Actual || r.status || r.comments || '';
-                    // Actual is usually third column
-                    const cell = rowDom.cells[2];
-                    if (cell) {
-                      const sel = cell.querySelector('select, input');
-                      if (sel) { sel.value = actual; sel.dispatchEvent(new Event('change')); }
-                    }
-                  } catch (e) {}
+                  const targetNorm = normalize(name);
+                  let rowDom = rowsDom.find(rr => {
+                    try { return normalize((rr.cells && rr.cells[0] && rr.cells[0].textContent) ? rr.cells[0].textContent : '') === targetNorm; } catch (e) { return false; }
+                  });
+                  if (!rowDom) {
+                    rowDom = rowsDom.find(rr => {
+                      try {
+                        const txt = (rr.cells && rr.cells[0] && rr.cells[0].textContent) ? rr.cells[0].textContent : '';
+                        const tnorm = normalize(txt);
+                        return tnorm.includes(targetNorm) || targetNorm.includes(tnorm);
+                      } catch (e) { return false; }
+                    });
+                  }
+                  if (!rowDom) { unmatched.push(name); return; }
+
+                  // helper to set a cell value by index
+                  const setCellVal = (idx, val) => {
+                    if (idx === -1) return;
+                    try {
+                      const cell = rowDom.cells[idx];
+                      if (!cell) return;
+                      const input = cell.querySelector('select, input, textarea');
+                      if (input) {
+                        // try direct assign
+                        input.value = val || '';
+                        // if select didn't match, try fuzzy match on options
+                        if (input.tagName && input.tagName.toLowerCase() === 'select') {
+                          const norm = s => (s||'').toString().toLowerCase().trim();
+                          if (norm(input.value) !== norm(val)) {
+                            const opt = Array.from(input.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
+                            if (opt) input.value = opt.value;
+                          }
+                        }
+                        input.dispatchEvent(new Event('change'));
+                      } else {
+                        // no input; leave text alone (do not overwrite '-')
+                      }
+                    } catch (e) { /* ignore */ }
+                  };
+
+                  setCellVal(specIdx, r.Spec || r.spec || '');
+                  setCellVal(actualIdx, r.actual || r.Actual || r.value || '');
+                  setCellVal(statusIdx, r.status || r.Status || '');
+                  setCellVal(commentsIdx, r.comments || r.Notes || r.notes || '');
                 });
+
+                if (unmatched.length) console.warn('Brakes populate: unmatched items:', unmatched);
+                // populate parent comments from joined rows if present
+                try {
+                  const parentComments = (rows[0] && (rows[0].brakesComments || rows[0].comments)) || '';
+                  if (parentComments) {
+                    const commentsInput = sec.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
+                    if (commentsInput) commentsInput.value = parentComments;
+                  }
+                } catch (e) {}
                 return;
               }
 
@@ -1845,8 +1902,93 @@ document.addEventListener('DOMContentLoaded', function () {
   else bind();
 })();
 
-// --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
-(function wireVehicleInfoForm() {
+// --- Brakes: save brakes table rows to /mechanic/brakes ---
+(function wireBrakesSave() {
+  const bind = function() {
+    try {
+      const saveBtn = document.querySelector('.section-save[data-section="brakes"]');
+      const brakesSection = document.getElementById('brakes');
+      if (!saveBtn || !brakesSection) return;
+      if (saveBtn.dataset.boundBrakesSave === '1') return;
+      saveBtn.dataset.boundBrakesSave = '1';
+
+      saveBtn.addEventListener('click', async function (e) {
+        e.preventDefault(); e.stopPropagation();
+
+        const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
+        if (!ticketId) {
+          console.error('Cannot save brakes: missing ticket id. Save Repair Order first.');
+          return;
+        }
+
+        const table = brakesSection.querySelector('table');
+        const items = [];
+        if (table) {
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').toLowerCase());
+          const findIdx = (keys) => {
+            const ks = Array.isArray(keys) ? keys : [keys];
+            return headerCells.findIndex(h => ks.some(k => h.includes(k)));
+          };
+          const specIdx = findIdx(['spec']);
+          const actualIdx = findIdx(['actual','value']);
+          const statusIdx = findIdx(['status']);
+          const commentsIdx = findIdx(['comment','notes','note']);
+
+          rows.forEach(row => {
+            try {
+              const itemLabel = (row.cells && row.cells[0] ? row.cells[0].textContent : '').trim();
+              if (!itemLabel) return;
+              const getCell = (idx) => {
+                if (idx === -1 || !row.cells[idx]) return '';
+                const cell = row.cells[idx];
+                const input = cell.querySelector('select, input, textarea');
+                if (input) return input.value || '';
+                return (cell.textContent || '').trim();
+              };
+              const Spec = getCell(specIdx);
+              const actual = getCell(actualIdx);
+              const status = getCell(statusIdx);
+              const comments = getCell(commentsIdx);
+              items.push({ item: itemLabel, Spec, actual, status, comments });
+            } catch (e) { /* ignore row */ }
+          });
+        }
+
+        // parent comments (full-width comments input)
+        const parentCommentsInput = brakesSection.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
+        const parentComments = parentCommentsInput ? (parentCommentsInput.value || '').trim() : '';
+
+        try {
+          const res = await fetch('/mechanic/brakes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketId, items, comments: parentComments })
+          });
+
+          if (res.status === 204) { console.log('Brakes saved (204)'); return; }
+          if (res.ok) {
+            let payload = null; try { payload = await res.json(); } catch (e) { payload = null; }
+            if (payload && payload.success) { console.log('Brakes saved'); return; }
+            console.warn('Brakes save response', res.status, payload); return;
+          }
+          let errPayload = null; try { errPayload = await res.json(); } catch (e) { errPayload = null; }
+          console.error('Brakes save failed', res.status, errPayload);
+        } catch (err) {
+          console.error('Brakes save failed', err);
+        }
+      });
+    } catch (err) {
+      console.warn('wireBrakesSave error', err);
+    }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+ // --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
+ (function wireVehicleInfoForm() {
   try {
     const vForm = document.getElementById('vehicle-info-form');
     if (!vForm) return;

@@ -192,7 +192,24 @@ router.get('/mechanic', (req, res) => {
                                     ticket.sections = ticket.sections || {};
                                     ticket.sections.steeringSuspensionTable = steeringRows || [];
                                 }
-                                return res.render('mechanic', { ticket, editMode: explicitEdit });
+
+                                // also load brakes joined rows (parent comments + child rows)
+                                const brakesJoinSql = `
+                                  SELECT bt.*, b.ticketID AS brakesTicketID, b.comments AS brakesComments
+                                  FROM brakesTable bt
+                                  INNER JOIN brakes b ON bt.brakesID = b.id
+                                  WHERE b.ticketID = ?
+                                  ORDER BY bt.id ASC
+                                `;
+                                db.all(brakesJoinSql, [ticketId], (bErr, brakesRows) => {
+                                  if (bErr) {
+                                    console.error('Error loading brakes joined rows:', bErr);
+                                  } else if (Array.isArray(brakesRows) && brakesRows.length) {
+                                    ticket.sections = ticket.sections || {};
+                                    ticket.sections.brakesTable = brakesRows;
+                                  }
+                                  return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                });
                             });
                         });
                     };
@@ -742,6 +759,153 @@ router.post('/mechanic/steering-suspension', (req, res) => {
       }
     });
   });
+});
+
+router.post('/mechanic/brakes', (req, res) => {
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+    const ticketId = req.body.ticketId || req.body.ticketID || req.query.ticketId || req.query.ticketID;
+    if (!ticketId) return res.status(400).json({ error: 'ticketId is required' });
+
+    // Accept JSON body: { ticketId, items: [ { item, Spec, actual, status, comments }, ... ] }
+    let items = req.body.items;
+    if (!items && req.body.payload) {
+        try {
+            const p = typeof req.body.payload === 'string' ? JSON.parse(req.body.payload) : req.body.payload;
+            items = p.items || p.rows || null;
+        } catch (e) { /* ignore */ }
+    }
+    if (typeof items === 'string') {
+        try { items = JSON.parse(items); } catch (e) { items = null; }
+    }
+
+    if (!Array.isArray(items)) {
+        // fallback: parse sequential form fields
+        const parsed = [];
+        for (let i = 0;; i++) {
+            const item = req.body[`item_${i}`];
+            if (typeof item === 'undefined') break;
+            parsed.push({
+                item: item,
+                Spec: req.body[`spec_${i}`] || '',
+                actual: req.body[`actual_${i}`] || '',
+                status: req.body[`status_${i}`] || '',
+                comments: req.body[`comments_${i}`] || ''
+            });
+        }
+        items = parsed;
+    }
+
+    items = Array.isArray(items) ? items : [];
+
+    // accept parent comments for brakes
+    const parentComments = req.body.comments || req.body.brakesComments || req.body.comment || req.body.notes || '';
+
+    // normalize items
+    const normalized = items.map(it => ({
+        item: (it.item || it.name || it.label || '').toString().trim(),
+        Spec: (it.Spec || it.spec || it.Specification || '').toString().trim(),
+        actual: (it.actual || it.Actual || it.value || '').toString().trim(),
+        status: (it.status || it.State || '').toString().trim(),
+        comments: (it.comments || it.note || it.notes || '').toString().trim()
+    })).filter(it => it.item);
+
+    // follow parent-child pattern (like steering/courtesy): find or create a parent `brakes` row, then insert children in `brakesTable` referencing that parent by `brakesID`.
+    db.serialize(() => {
+        // find or create parent brakes row for this ticket
+        db.get('SELECT id FROM brakes WHERE ticketID = ?', [ticketId], (err, row) => {
+            if (err) {
+                console.error('Find brakes parent error:', err);
+                return res.status(500).json({ error: 'DB error' });
+            }
+
+            const createChildren = (parentId) => {
+                // delete existing children for this parent
+                db.run('DELETE FROM brakesTable WHERE brakesID = ?', [parentId], (delErr) => {
+                    if (delErr) {
+                        console.warn('Failed to delete old brakes children:', delErr);
+                        // continue to attempt inserts anyway
+                    }
+
+                    // helper to update parent comments (adds column if missing)
+                    const updateParentCommentsIfNeeded = (cb) => {
+                        if (!parentComments || parentComments === '') return cb && cb();
+                        db.all(`PRAGMA table_info('brakes')`, [], (piErr, cols) => {
+                            if (piErr) {
+                                console.warn('PRAGMA error checking brakes columns', piErr);
+                                return cb && cb();
+                            }
+                            const hasComments = Array.isArray(cols) && cols.find(c => String(c.name).toLowerCase() === 'comments');
+                            const finalize = () => {
+                                if (cb) cb();
+                            };
+                            if (!hasComments) {
+                                db.run("ALTER TABLE brakes ADD COLUMN comments TEXT", [], (altErr) => {
+                                    if (altErr) console.warn('Failed to add comments column to brakes', altErr);
+                                    db.run('UPDATE brakes SET comments = ? WHERE id = ?', [parentComments, parentId], (upErr) => {
+                                        if (upErr) console.warn('Failed to update brakes parent comments', upErr);
+                                        return finalize();
+                                    });
+                                });
+                            } else {
+                                db.run('UPDATE brakes SET comments = ? WHERE id = ?', [parentComments, parentId], (upErr) => {
+                                    if (upErr) console.warn('Failed to update brakes parent comments', upErr);
+                                    return finalize();
+                                });
+                            }
+                        });
+                    };
+
+                    if (!normalized.length) {
+                        // no child rows: still ensure parent comments are saved
+                        return updateParentCommentsIfNeeded(() => res.sendStatus(204));
+                    }
+
+                    const stmt = db.prepare('INSERT INTO brakesTable (brakesID, item, Spec, actual) VALUES (?, ?, ?, ?)');
+                    let pending = normalized.length;
+                    let failed = false;
+                    normalized.forEach(rowItem => {
+                        stmt.run([parentId, rowItem.item, rowItem.Spec, rowItem.actual], (iErr) => {
+                            if (failed) return;
+                            if (iErr) {
+                                failed = true;
+                                stmt.finalize(() => {
+                                    console.error('Failed to insert brakes row:', iErr);
+                                    return res.status(500).json({ error: 'Failed to save brakes rows' });
+                                });
+                                return;
+                            }
+                            pending -= 1;
+                            if (pending === 0) {
+                                stmt.finalize((finErr) => {
+                                    if (finErr) {
+                                        console.error('Failed finalizing brakes stmt:', finErr);
+                                        return res.status(500).json({ error: 'Failed to save brakes rows' });
+                                    }
+                                    // after inserting children, update parent comments if provided
+                                    updateParentCommentsIfNeeded(() => res.sendStatus(204));
+                                });
+                            }
+                        });
+                    });
+                });
+            };
+
+            if (row && row.id) {
+                createChildren(row.id);
+            } else {
+                // create parent brakes row (include provided parentComments)
+                db.run('INSERT INTO brakes (ticketID, item, comments) VALUES (?, ?, ?)', [ticketId, 'Brakes (Visual Inspection)', parentComments || ''], function (insErr) {
+                    if (insErr) {
+                        console.error('Failed create brakes parent:', insErr);
+                        return res.status(500).json({ error: 'DB insert error' });
+                    }
+                    createChildren(this.lastID);
+                });
+            }
+        });
+    });
+
 });
 
 // video upload route 

@@ -1526,20 +1526,80 @@ document.addEventListener('DOMContentLoaded', function () {
                     } catch (e) { }
                   });
                 }
+                // Populate parent emissions fields and warnings from ticket.sections.emissions (if present)
+                try {
+                  const parent = (ticket && ticket.sections && (ticket.sections.emissions || ticket.sections['emissions'])) || null;
+                  if (parent) {
+                    // populate middle form-grid fields by matching labels
+                    const groups = Array.from(sec.querySelectorAll('.form-grid .form-group'));
+                    const mapKeys = {
+                      OBD: ['obd','obd/emissions','obd_emissions','obd'],
+                      inspections: ['inspections','inspection','inspected'],
+                      emissionsDue: ['emissionsdue','emissions_due','emissionsdue','emissiondue','emission_due','emission due'],
+                      nextOilChange: ['nextoilchange','nextOilChange','next_oil_change','nextoilchange','next oil change','next oil','nextoil'],
+                      inspectedBy: ['inspectedby','inspectedBy','inspected_by'],
+                      reInspectedBy: ['reinspectedby','reInspectedBy','re_inspected_by']
+                    };
+                    Object.keys(mapKeys).forEach(k => {
+                      const aliases = mapKeys[k];
+                      for (const g of groups) {
+                        const lbl = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
+                        if (!lbl) continue;
+                        const matched = aliases.some(a => lbl.includes(a.toLowerCase()) || a.toLowerCase().includes(lbl));
+                        if (matched) {
+                          const inp = g.querySelector('input,select,textarea');
+                          if (inp && (parent[k] != null && parent[k] !== '')) {
+                            try { inp.value = parent[k]; inp.dispatchEvent(new Event('change')); } catch(e) {}
+                          }
+                        }
+                      }
+                    });
+
+                    // populate parent comments (full-width)
+                    try {
+                      const parentComments = parent.comments || parent.emissionsComments || parent.comments || '';
+                      if (parentComments) {
+                        const commentsGroup = Array.from(sec.querySelectorAll('.form-group.full-width')).find(g => { const l=(g.querySelector('label')&&g.querySelector('label').textContent||'').toLowerCase(); return l.includes('comment'); });
+                        const cinput = commentsGroup && commentsGroup.querySelector('input,textarea');
+                        if (cinput) { cinput.value = parentComments; cinput.dispatchEvent(new Event('change')); }
+                      }
+                    } catch(e) {}
+                  }
+
+                  // populate warnings/tags from ticket.sections.emissionsWarnings or fallback keys
+                  const warnRows = (ticket && ticket.sections && (ticket.sections.emissionsWarnings || ticket.sections.warningstable || ticket.sections.warnings || [])) || [];
+                  if (Array.isArray(warnRows) && warnRows.length) {
+                    try {
+                      const tagsHidden = document.getElementById('tags-hidden');
+                      const list = document.getElementById('tag-list');
+                      if (tagsHidden && list) {
+                        const items = warnRows.map(r => (r.item || r.Item || r.name || '').toString()).filter(Boolean);
+                        tagsHidden.value = items.join(',');
+                        list.innerHTML = '';
+                        items.forEach((t) => {
+                          const chip = document.createElement('div'); chip.className = 'tag-chip'; chip.textContent = t;
+                          const x = document.createElement('button'); x.type='button'; x.className='tag-remove'; x.textContent='×';
+                          x.addEventListener('click', () => { /* no-op on load */ });
+                          chip.appendChild(x); list.appendChild(chip);
+                        });
+                      }
+                    } catch (e) { /* ignore */ }
+                  }
+                } catch (e) { /* ignore */ }
                 // emissions (form inputs) may exist under 'emissions' table (separate)
                 if (key === 'emissions') {
                   // rows may represent a single row with form fields
                   const row = rows[0];
                   if (row) {
                     const mapping = {
-                      OBD: ['obd', 'obd/emissions', 'obd_emissions', 'obd'],
-                      inspections: ['inspections', 'inspection', 'inspected'],
-                      emissionsDue: ['emissionsdue', 'emissions_due', 'emissionsdue'],
-                      nextOilChange: ['nextoilchange', 'nextOilChange', 'next_oil_change', 'nextOilChange'],
-                      inspectedBy: ['inspectedby', 'inspectedBy', 'inspected_by'],
-                      reInspectedBy: ['reinspectedby', 'reInspectedBy', 're_inspected_by', 'reInspectedBy'],
-                      warnings: ['warnings', 'warnings'],
-                      comments: ['comments', 'comment']
+                      OBD: ['obd','obd/emissions','obd_emissions','obd'],
+                      inspections: ['inspections','inspection','inspected'],
+                      emissionsDue: ['emissionsdue','emissions_due','emissionsdue'],
+                      nextOilChange: ['nextoilchange','nextOilChange','next_oil_change','nextOilChange'],
+                      inspectedBy: ['inspectedby','inspectedBy','inspected_by'],
+                      reInspectedBy: ['reinspectedby','reInspectedBy','re_inspected_by','reInspectedBy'],
+                      warnings: ['warnings','warnings'],
+                      comments: ['comments','comment']
                     };
                     Object.keys(mapping).forEach(k => {
                       const keys = mapping[k];

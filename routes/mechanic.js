@@ -559,18 +559,18 @@ router.post('/mechanic/tires', (req, res) => {
     if (!ticketId) return res.status(400).json({ error: 'ticketId is required' });
 
     // accept multiple possible field names from the client (case-insensitive variations)
-    const size = body.size || body.tireSize || body.Size || null;
-    const speedRating = body.speedRating || body.speed || body.SpeedRating || null;
-    const LF = body.LF || body.tireLF || body.leftFront || null;
-    const RF = body.RF || body.tireRF || body.rightFront || null;
-    const LR = body.LR || body.tireLR || body.leftRear || null;
-    const RR = body.RR || body.tireRR || body.rightRear || null;
-    const SP = body.SP || body.tireSpare || body.spare || null;
-    const treadDepth32 = body.treadDepth32 || body.treadDepth || body.tread || null;
-    const rotationDue = body.rotationDue || body.rotationD || body.rotation || null;
-    const balance = body.balanceDue || body.balanace || body.bal || null;
-    const alignment = body.alignmentCheck || body.alignmentC || body.align || null;
-    const comments = body.tireComments || body.comment || null;
+    const size = (typeof body.size !== 'undefined' ? body.size : (typeof body.tireSize !== 'undefined' ? body.tireSize : (typeof body.Size !== 'undefined' ? body.Size : '')));
+    const speedRating = (typeof body.speedRating !== 'undefined' ? body.speedRating : (typeof body.speed !== 'undefined' ? body.speed : (typeof body.SpeedRating !== 'undefined' ? body.SpeedRating : '')));
+    const LF = (typeof body.LF !== 'undefined' ? body.LF : (typeof body.tireLF !== 'undefined' ? body.tireLF : (typeof body.leftFront !== 'undefined' ? body.leftFront : '')));
+    const RF = (typeof body.RF !== 'undefined' ? body.RF : (typeof body.tireRF !== 'undefined' ? body.tireRF : (typeof body.rightFront !== 'undefined' ? body.rightFront : '')));
+    const LR = (typeof body.LR !== 'undefined' ? body.LR : (typeof body.tireLR !== 'undefined' ? body.tireLR : (typeof body.leftRear !== 'undefined' ? body.leftRear : '')));
+    const RR = (typeof body.RR !== 'undefined' ? body.RR : (typeof body.tireRR !== 'undefined' ? body.tireRR : (typeof body.rightRear !== 'undefined' ? body.rightRear : '')));
+    const SP = (typeof body.SP !== 'undefined' ? body.SP : (typeof body.tireSpare !== 'undefined' ? body.tireSpare : (typeof body.spare !== 'undefined' ? body.spare : '')));
+    const treadDepth32 = (typeof body.treadDepth32 !== 'undefined' ? body.treadDepth32 : (typeof body.treadDepth !== 'undefined' ? body.treadDepth : (typeof body.tread !== 'undefined' ? body.tread : '')));
+    const rotationDue = (typeof body.rotationDue !== 'undefined' ? body.rotationDue : (typeof body.rotationD !== 'undefined' ? body.rotationD : (typeof body.rotation !== 'undefined' ? body.rotation : '')));
+    const balance = (typeof body.balanceDue !== 'undefined' ? body.balanceDue : (typeof body.balanace !== 'undefined' ? body.balanace : (typeof body.bal !== 'undefined' ? body.bal : '')));
+    const alignment = (typeof body.alignmentCheck !== 'undefined' ? body.alignmentCheck : (typeof body.alignmentC !== 'undefined' ? body.alignmentC : (typeof body.align !== 'undefined' ? body.align : '')));
+    const comments = (typeof body.tireComments !== 'undefined' ? body.tireComments : (typeof body.comment !== 'undefined' ? body.comment : null));
 
     const params = [size, speedRating, LF, RF, LR, RR, SP, treadDepth32, rotationDue, balance, alignment, comments, ticketId];
 

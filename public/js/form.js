@@ -297,6 +297,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // guard: setting input.files may throw in some browsers
         try { fileInput.files = fileList; } catch (err) { console.warn('Could not set fileInput.files', err); }
       }
+    });
+
     fileInput.addEventListener('change', function (e) {
       const fileList = e.target.files;
       if (fileList && fileList.length) handleFilesChosen(Array.from(fileList));
@@ -1533,7 +1535,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 try {
                   const parent = (ticket && ticket.sections && (ticket.sections.emissions || ticket.sections['emissions'])) || null;
                   if (parent) {
-                    try { console.log('populateFromServerTicket: emissions parent object', parent); } catch(e) {}
                     // populate middle form-grid fields by matching labels
                     const groups = Array.from(sec.querySelectorAll('.form-grid .form-group'));
                     const mapKeys = {
@@ -1544,26 +1545,6 @@ document.addEventListener('DOMContentLoaded', function () {
                       inspectedBy: ['inspectedby','inspectedBy','inspected_by'],
                       reInspectedBy: ['reinspectedby','reInspectedBy','re_inspected_by']
                     };
-                    // helper: find a parent property by trying aliases and case-insensitive match
-                    const findParentVal = (parentObj, aliasesArr, fallback) => {
-                      if (!parentObj) return null;
-                      const keys = Object.keys(parentObj || {});
-                      // try aliases first
-                      for (const a of (aliasesArr || [])) {
-                        const al = String(a || '').toLowerCase();
-                        for (const pk of keys) {
-                          if (String(pk || '').toLowerCase() === al) return parentObj[pk];
-                        }
-                      }
-                      // try fallback key
-                      if (fallback) {
-                        for (const pk of keys) {
-                          if (String(pk || '').toLowerCase() === String(fallback).toLowerCase()) return parentObj[pk];
-                        }
-                      }
-                      return null;
-                    };
-
                     Object.keys(mapKeys).forEach(k => {
                       const aliases = mapKeys[k];
                       for (const g of groups) {
@@ -1572,9 +1553,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         const matched = aliases.some(a => lbl.includes(a.toLowerCase()) || a.toLowerCase().includes(lbl));
                         if (matched) {
                           const inp = g.querySelector('input,select,textarea');
-                          const val = findParentVal(parent, aliases, k);
-                          if (inp && (val != null && val !== '')) {
-                            try { inp.value = val; inp.dispatchEvent(new Event('change')); } catch(e) {}
+                          if (inp && (parent[k] != null && parent[k] !== '')) {
+                            try { inp.value = parent[k]; inp.dispatchEvent(new Event('change')); } catch(e) {}
                           }
                         }
                       }
@@ -1619,8 +1599,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     const mapping = {
                       OBD: ['obd','obd/emissions','obd_emissions','obd'],
                       inspections: ['inspections','inspection','inspected'],
-                      emissionsDue: ['emissionsdue','emissions_due','emissionsdue','emissiondue','emission_due','emission due'],
-                      nextOilChange: ['nextoilchange','nextOilChange','next_oil_change','nextoilchange','next oil change','next oil','nextoil'],
+                      emissionsDue: ['emissionsdue','emissions_due','emissionsdue'],
+                      nextOilChange: ['nextoilchange','nextOilChange','next_oil_change','nextOilChange'],
                       inspectedBy: ['inspectedby','inspectedBy','inspected_by'],
                       reInspectedBy: ['reinspectedby','reInspectedBy','re_inspected_by','reInspectedBy'],
                       warnings: ['warnings','warnings'],
@@ -2333,5 +2313,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { capture: true });
   }
 });
-
-})();

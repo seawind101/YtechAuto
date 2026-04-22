@@ -23,4 +23,17 @@ router.get('/mechanic/incomplete', (req, res) => {
     });
 });
 
+router.post('/mechanic/completeTicket', (req, res) => {
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+    const { ticketId } = req.body;
+    const sql = `UPDATE tickets SET stat = 'complete' WHERE id = ?`;
+    db.run(sql, [ticketId], function(err) {
+        if (err) {
+            console.error('Failed to complete ticket', err);
+            return res.status(500).json({ error: 'Failed to complete ticket' });
+        }
+        return res.sendStatus(204);
+    });
+});
 module.exports = router;

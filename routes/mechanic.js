@@ -143,15 +143,53 @@ router.get('/mechanic', (req, res) => {
                                   WHERE b.ticketID = ?
                                   ORDER BY bt.id ASC
                                 `;
-                                db.all(brakesJoinSql, [ticketId], (bErr, brakesRows) => {
-                                  if (bErr) {
-                                    console.error('Error loading brakes joined rows:', bErr);
-                                  } else if (Array.isArray(brakesRows) && brakesRows.length) {
-                                    ticket.sections = ticket.sections || {};
-                                    ticket.sections.brakesTable = brakesRows;
-                                  }
-                                  return res.render('mechanic', { ticket, editMode: explicitEdit });
-                                });
+                                                                db.all(brakesJoinSql, [ticketId], (bErr, brakesRows) => {
+                                                                    if (bErr) {
+                                                                        console.error('Error loading brakes joined rows:', bErr);
+                                                                    } else if (Array.isArray(brakesRows) && brakesRows.length) {
+                                                                        ticket.sections = ticket.sections || {};
+                                                                        ticket.sections.brakesTable = brakesRows;
+                                                                    }
+
+                                                                    // load emissions child rows joined to their parent (emissions) so client can populate the visual table
+                                                                    const emissionsJoinSql = `
+                                                                        SELECT et.*, e.ticketID AS emissionsTicketID, e.comments AS emissionsComments, e.obd AS emissionsOBD, e.inspections AS emissionsInspections, e.emissionsDue AS emissionsDue, e.nextOilChange AS emissionsNextOilChange, e.inspectedBy AS emissionsInspectedBy, e.reInspectedBy AS emissionsReInspectedBy
+                                                                        FROM emissionsTable et
+                                                                        INNER JOIN emissions e ON et.emissionsID = e.id
+                                                                        WHERE e.ticketID = ?
+                                                                        ORDER BY et.id ASC
+                                                                    `;
+
+                                                                    db.all(emissionsJoinSql, [ticketId], (emErr, emissionsRows) => {
+                                                                        if (emErr) {
+                                                                            console.error('Error loading emissions joined rows:', emErr);
+                                                                        } else {
+                                                                            ticket.sections = ticket.sections || {};
+                                                                            ticket.sections.emissionsTable = emissionsRows || [];
+                                                                        }
+
+                                                                        // also fetch the emissions parent row (contains ticket-level fields and comments)
+                                                                        db.get('SELECT * FROM emissions WHERE ticketID = ?', [ticketId], (epErr, emissionsParent) => {
+                                                                            if (epErr) {
+                                                                                console.error('Error fetching emissions parent:', epErr);
+                                                                            }
+                                                                            ticket.sections = ticket.sections || {};
+                                                                            ticket.sections.emissions = emissionsParent || null;
+
+                                                                            // fetch warnings linked to this emissions parent (if any)
+                                                                            if (emissionsParent && emissionsParent.id) {
+                                                                                db.all('SELECT * FROM warningsTable WHERE emissionsID = ?', [emissionsParent.id], (wErr, warnRows) => {
+                                                                                    if (wErr) console.error('Error loading emissions warnings:', wErr);
+                                                                                    ticket.sections.emissionsWarnings = warnRows || [];
+                                                                                    return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                                                                });
+                                                                            } else {
+                                                                                ticket.sections.emissionsWarnings = [];
+                                                                                return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                                                            }
+                                                                        });
+                                                                    });
+                                                                });
                             });
                         });
                     };
@@ -830,6 +868,221 @@ router.post('/mechanic/brakes', (req, res) => {
         });
     });
 
+});
+
+router.post('/mechanic/emissions', (req, res) => {
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+
+    // normalize body (accept JSON or form fields)
+    let body = req.body || {};
+    if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch (e) { body = {}; }
+    }
+
+    const ticketId = body.ticketId || body.ticketID || req.query.ticketId || req.query.ticketID;
+    if (!ticketId) return res.status(400).json({ error: 'ticketId is required' });
+
+    // items for emissions table (visual items)
+    let items = body.items || body.rows || body.table || null;
+    if (!items && body.payload) {
+        try { const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload; items = p.items || p.rows || null; } catch (e) {}
+    }
+    if (typeof items === 'string') {
+        try { items = JSON.parse(items); } catch (e) { items = null; }
+    }
+
+    // middle emissions info
+    const emissionsInfo = body.emissions || body.data || {};
+    // also accept individual fields
+    const OBD = emissionsInfo.OBD || body.OBD || body.obd || '';
+    const inspections = emissionsInfo.inspections || body.inspections || '';
+    const emissionsDue = emissionsInfo.emissionsDue || body.emissionsDue || body.emissions_due || '';
+    const nextOilChange = emissionsInfo.nextOilChange || body.nextOilChange || body.next_oil_change || '';
+    const inspectedBy = emissionsInfo.inspectedBy || body.inspectedBy || body.inspected_by || '';
+    const reInspectedBy = emissionsInfo.reInspectedBy || body.reInspectedBy || body.re_inspected_by || '';
+    const warningsText = emissionsInfo.warnings || body.warningsText || body.warnings || '';
+    // ensure comments always defined and add debug logging to inspect incoming payload
+    const comments = emissionsInfo.comments || body.comments || body.emissionsComments || '';
+    try { console.log('POST /mechanic/emissions - raw body keys:', Object.keys(body)); } catch(e) {}
+    try { console.log('POST /mechanic/emissions - body snapshot:', JSON.stringify(body)); } catch(e) {}
+    console.log('Received emissions info:', { OBD, inspections, emissionsDue, nextOilChange, inspectedBy, reInspectedBy, warningsText, comments });
+    // tags/warnings array
+    let tags = body.tags || body.warnings || emissionsInfo.tags || emissionsInfo.warnings || null;
+    if (typeof tags === 'string') {
+        try { tags = JSON.parse(tags); } catch (e) { tags = tags.split(',').map(s=>s.trim()).filter(Boolean); }
+    }
+    tags = Array.isArray(tags) ? tags : (tags ? [tags] : []);
+
+    items = Array.isArray(items) ? items : (items ? [items] : []);
+
+    // normalize items rows
+    const normalizedItems = items.map(it => ({
+        item: (it.item || it.name || it.label || '').toString().trim(),
+        status: (it.status || it.State || it.state || '').toString().trim(),
+        notes: (it.notes || it.note || '').toString().trim()
+    })).filter(it => it.item);
+
+    db.serialize(() => {
+        // ensure emissionsTable has emissionsID column and warningsTable has emissionsID column (for parent-child link)
+        db.all("PRAGMA table_info('emissionsTable')", [], (piErr, cols) => {
+            if (piErr) console.warn('PRAGMA emissionsTable failed', piErr);
+            const hasEmissionsID = Array.isArray(cols) && cols.find(c => String(c.name).toLowerCase() === 'emissionsid');
+            const ensureEmissionsID = (cb) => {
+                if (hasEmissionsID) return cb && cb();
+                db.run("ALTER TABLE emissionsTable ADD COLUMN emissionsID INTEGER", [], (altErr) => { if (altErr) console.warn('Failed add emissionsID to emissionsTable', altErr); return cb && cb(); });
+            };
+
+            db.all("PRAGMA table_info('warningsTable')", [], (pwErr, wcols) => {
+                if (pwErr) console.warn('PRAGMA warningsTable failed', pwErr);
+                const hasWarnEmissionsID = Array.isArray(wcols) && wcols.find(c => String(c.name).toLowerCase() === 'emissionsid');
+                const ensureWarningsEmissionsID = (cb) => {
+                    if (hasWarnEmissionsID) return cb && cb();
+                    db.run("ALTER TABLE warningsTable ADD COLUMN emissionsID INTEGER", [], (altErr) => { if (altErr) console.warn('Failed add emissionsID to warningsTable', altErr); return cb && cb(); });
+                };
+
+                ensureEmissionsID(() => ensureWarningsEmissionsID(() => {
+                    // find or create parent emissions row
+                    db.get('SELECT id FROM emissions WHERE ticketID = ?', [ticketId], (gErr, prow) => {
+                        if (gErr) { console.error('Find emissions parent error', gErr); return res.status(500).json({ error: 'DB error' }); }
+
+                        // helper: update parent emissions fields only for columns that exist
+                        const updateParentFields = (parentId, cb) => {
+                            db.all("PRAGMA table_info('emissions')", [], (piErr, cols) => {
+                                if (piErr) { console.warn('PRAGMA emissions check failed', piErr); if (cb) cb(); return; }
+                                const existing = Array.isArray(cols) ? cols.map(c => String(c.name).toLowerCase()) : [];
+                                const parts = [];
+                                const params = [];
+                                const mapping = {
+                                    obd: OBD,
+                                    inspections: inspections,
+                                    emissionsdue: emissionsDue,
+                                    nextoilchange: nextOilChange,
+                                    inspectedby: inspectedBy,
+                                    reinspectedby: reInspectedBy,
+                                    warnings: warningsText,
+                                    comments: comments
+                                };
+                                Object.keys(mapping).forEach(k => {
+                                    if (existing.includes(k)) {
+                                        parts.push(k + ' = ?');
+                                        params.push(mapping[k] || '');
+                                    }
+                                });
+                                if (!parts.length) { if (cb) cb(); return; }
+                                const sql = `UPDATE emissions SET ${parts.join(', ')} WHERE id = ?`;
+                                params.push(parentId);
+                                db.run(sql, params, (uErr) => {
+                                    if (uErr) console.warn('Failed update emissions parent (dynamic)', uErr);
+                                    if (cb) cb();
+                                });
+                            });
+                        };
+
+                        // helper: create parent emissions row using actual table columns
+                        const createParentRow = (cb) => {
+                            db.all("PRAGMA table_info('emissions')", [], (piErr, cols) => {
+                                if (piErr) { console.warn('PRAGMA emissions failed', piErr); return cb(piErr); }
+                                const colInfos = Array.isArray(cols) ? cols.filter(c => c && c.name && c.name.toLowerCase() !== 'id') : [];
+                                const colNames = colInfos.map(c => c.name);
+                                if (!colNames.length) return cb(new Error('No columns found for emissions'));
+                                const values = colNames.map((cn, idx) => {
+                                    const lower = cn.toLowerCase();
+                                    if (lower === 'ticketid' || lower === 'ticket_id') return ticketId;
+                                    if (lower === 'obd') return OBD || '';
+                                    if (lower === 'inspections') return inspections || '';
+                                    if (lower === 'emissionsdue') return emissionsDue || '';
+                                    if (lower === 'nextoilchange') return nextOilChange || '';
+                                    if (lower === 'inspectedby') return inspectedBy || '';
+                                    if (lower === 'reinspectedby') return reInspectedBy || '';
+                                    if (lower === 'warnings') return warningsText || '';
+                                    if (lower === 'comments') return comments || '';
+                                    // default for other columns: empty string if NOT NULL, otherwise null
+                                    try { const info = colInfos[idx]; return (info && info.notnull) ? '' : null; } catch (e) { return null; }
+                                });
+                                const placeholders = colNames.map(() => '?').join(', ');
+                                const sql = `INSERT INTO emissions (${colNames.join(', ')}) VALUES (${placeholders})`;
+                                db.run(sql, values, function (insErr) {
+                                    if (insErr) return cb(insErr);
+                                    return cb(null, this.lastID);
+                                });
+                            });
+                        };
+
+                        const upsertParent = (parentId, created) => {
+                            // delete existing child rows linked to this parent
+                            db.run('DELETE FROM emissionsTable WHERE emissionsID = ?', [parentId], (delErr) => {
+                                if (delErr) console.warn('Failed to delete old emissionsTable rows', delErr);
+
+                                // ensure the parent comments are saved immediately so they persist even if child/warning processing errors occur
+                                db.run('UPDATE emissions SET comments = ? WHERE id = ?', [comments || '', parentId], (cErr) => {
+                                    if (cErr) console.warn('Failed to explicitly update emissions comments', cErr);
+
+                                    // insert new child rows
+                                    if (!normalizedItems.length) {
+                                        // still update parent fields and warnings
+                                        const finalize = () => saveWarnings(parentId);
+                                        if (created) return finalize();
+                                        // update parent dynamically according to existing columns
+                                        return updateParentFields(parentId, finalize);
+                                    }
+
+                                    const stmt = db.prepare('INSERT INTO emissionsTable (emissionsID, item, status, notes) VALUES (?, ?, ?, ?)');
+                                    let pending = normalizedItems.length; let failed = false;
+                                    normalizedItems.forEach(row => {
+                                        stmt.run([parentId, row.item, row.status, row.notes], (itemErr) => {
+                                            if (failed) return;
+                                            if (itemErr) { failed = true; stmt.finalize(() => { console.error('Failed insert emissionsTable row', itemErr); return res.status(500).json({ error: 'Failed to save emissions table rows' }); }); return; }
+                                            pending -= 1;
+                                            if (pending === 0) {
+                                                stmt.finalize((finErr) => {
+                                                    if (finErr) { console.error('Failed finalize emissionsTable stmt', finErr); return res.status(500).json({ error: 'Failed to save emissions table rows' }); }
+                                                    // update parent fields now (use dynamic updater)
+                                                    updateParentFields(parentId, () => saveWarnings(parentId));
+                                                });
+                                            }
+                                        });
+                                    });
+                                });
+                            });
+                        };
+
+                        const saveWarnings = (parentId) => {
+                            // always update the emissions parent comments first (ensure comments persist even when no tags)
+                            db.run('UPDATE emissions SET comments = ? WHERE id = ?', [comments || '', parentId], (cErr) => {
+                                if (cErr) console.warn('Failed to update emissions comments explicitly', cErr);
+                                // remove existing warnings linked to this parent
+                                db.run('DELETE FROM warningsTable WHERE emissionsID = ?', [parentId], (wdelErr) => {
+                                    if (wdelErr) console.warn('Failed to delete old warnings', wdelErr);
+                                    if (!tags || tags.length === 0) return res.sendStatus(204);
+                                    const wstmt = db.prepare('INSERT INTO warningsTable (emissionsID, item) VALUES (?, ?)');
+                                    let wpending = tags.length; let wfailed = false;
+                                    tags.forEach(t => {
+                                        wstmt.run([parentId, (t || '').toString()], (we) => {
+                                            if (wfailed) return;
+                                            if (we) { wfailed = true; wstmt.finalize(() => { console.error('Failed insert warning', we); return res.status(500).json({ error: 'Failed to save warnings' }); }); return; }
+                                            wpending -= 1;
+                                            if (wpending === 0) { wstmt.finalize((wfin) => { if (wfin) { console.error('Failed finalize warnings stmt', wfin); return res.status(500).json({ error: 'Failed to save warnings' }); } return res.sendStatus(204); }); }
+                                        });
+                                    });
+                                });
+                            });
+                        };
+
+                        if (prow && prow.id) {
+                            upsertParent(prow.id, false);
+                        } else {
+                            // create parent emissions row using dynamic insert (handles schema differences)
+                            createParentRow((cErr, newId) => {
+                                if (cErr) { console.error('Failed create emissions parent', cErr); return res.status(500).json({ error: 'DB insert error' }); }
+                                upsertParent(newId, true);
+                            });
+                        }
+                    });
+                }));
+            });
+        });
+    });
 });
 
 // video upload route 

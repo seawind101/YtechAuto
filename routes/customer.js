@@ -38,10 +38,10 @@ router.get('/customer', (req, res) => {
                     return res.redirect('/customerDis');
                 }
                 
-                console.log('✅ Ticket found! Processing repairs...');
+                console.log('Ticket found! Processing repairs...');
                 console.log('Raw recommendedRepairs field:', ticket.recommendedRepairs);
                 
-                // Parse repairs from the recommendedRepairs text field
+                
                 let repairs = [];
                 try {
                     if (ticket.recommendedRepairs && ticket.recommendedRepairs.trim() !== '') {

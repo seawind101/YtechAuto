@@ -290,7 +290,6 @@ router.post('/mechanic', (req, res) => {
     db.all("PRAGMA table_info('tickets')", [], (err, cols) => {
         if (err) {
             console.error('Failed to read tickets table info', err);
-            return res.status(500).send('Database error');
         }
         const hasRepairOrderNumber = Array.isArray(cols) && cols.some(c => c && c.name === 'repairOrderNumber');
         const hasRo = Array.isArray(cols) && cols.some(c => c && c.name === 'roNum');
@@ -305,7 +304,6 @@ router.post('/mechanic', (req, res) => {
             db.run(insertTicketSql, ticketParams, function(err) {
                 if (err) {
                     console.error('Failed to insert ticket:', err);
-                    return res.status(500).send('Failed to save ticket');
                 }
 
                 const ticketId = this.lastID;
@@ -330,7 +328,13 @@ router.post('/mechanic', (req, res) => {
                 });
                 stmt.finalize((err) => {
                     if (err) console.error('Failed finalizing recRepairs stmt:', err);
-                    return res.redirect('/mechanic?id=' + ticketId);
+                    if (ticketId) {
+                        return res.redirect('/mechanic?id=' + ticketId);
+                    }
+                    else {
+                        console.warn('No ticket ID after insert');
+                        return res.send('Ticket created, but failed to retrieve ID for repairs insertion. Please check your form ensure all fields are filled. RO Number must be unique as well');
+                    }
                 });
             });
         };
@@ -532,18 +536,16 @@ router.post('/mechanic/courtesy-check', (req, res) => {
                                                 return res.status(500).json({ success: false, message: 'Failed to finalize courtesy save' });
                                             }
                                             return res.sendStatus(204);
-                                        });
                                     });
-                                }
-                            });
+                                });
+                            }
                         });
-                    }
-                );
+                    });
+                });
             });
         });
     });
 });
-
 router.post('/mechanic/tires', (req, res) => {
     const db = req.app.locals.db;
     if (!db) return res.status(500).json({ error: 'Database not available' });
@@ -1110,7 +1112,7 @@ router.post('/upload-video', videoUpload.single('video'), (req, res) => {
             });
             return;
         }
-        // success
+        
         res.json({ success: true, id: this.lastID, path: relativePath });
     });
 });

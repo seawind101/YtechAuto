@@ -680,6 +680,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function validateAndSubmit(e) {
       e.preventDefault();
+      try { console.log('validateAndSubmit invoked'); } catch(e) {}
       const errors = [];
 
       // collect elements used earlier in your validation
@@ -698,6 +699,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // if the user clicked Complete Ticket, we should validate the Digital Courtesy Check first
       const ticketStatusElTop = document.getElementById('ticketStatus');
       const tryingToCompleteTop = ticketStatusElTop && ticketStatusElTop.value === 'complete';
+      try { console.log('validateAndSubmit: ticketStatus=', ticketStatusElTop ? ticketStatusElTop.value : '(none)'); } catch(e) {}
       if (tryingToCompleteTop) {
         const courtesy = document.getElementById('courtesy-check');
         if (courtesy) {
@@ -747,7 +749,11 @@ document.addEventListener('DOMContentLoaded', function () {
       // basic required checks
       const roNum = roNumEl ? roNumEl.value.trim() : '';
       if (!roNum) errors.push('Repair Order number is required.');
-      else if (isNaN(Number(roNum))) errors.push('Repair Order number must be a valid number.');
+      else {
+        // allow alphanumeric repair order identifiers (letters, numbers, hyphen, underscore and spaces)
+        const validRo = /^[A-Za-z0-9\-_ ]+$/;
+        if (!validRo.test(roNum)) errors.push('Repair Order must contain only letters, numbers, hyphen, underscore or spaces.');
+      }
 
       const roDate = roDateEl ? roDateEl.value : '';
       if (!roDate) errors.push('Date is required.');
@@ -763,8 +769,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const custAddress = custAddressEl ? custAddressEl.value.trim() : '';
       if (!custAddress) errors.push('Customer address is required.');
-
-      // (mileage validation removed)
 
       const diagnosis = diagnosisEl ? diagnosisEl.value.trim() : '';
       if (!diagnosis) errors.push('Diagnosis is required. Put N/A if none.');
@@ -907,6 +911,9 @@ document.addEventListener('DOMContentLoaded', function () {
               }
               const lowerLabel = (labelText || '').toLowerCase();
               if (lowerLabel.includes('comments') || lowerLabel.includes('notes')) return;
+              // treat warnings/tags as optional
+              if (lowerLabel.includes('warning') || lowerLabel.includes('warnings')) return;
+              if ((el.id && el.id.toLowerCase().includes('tag')) || (el.name && el.name.toLowerCase().includes('tag'))) return;
 
               // skip inputs that are part of the repairs table (we validate repairs separately)
               if (el.closest && el.closest('#repairs-table')) return;
@@ -914,7 +921,7 @@ document.addEventListener('DOMContentLoaded', function () {
               // For selects, ensure a non-empty value
               if (el.tagName.toLowerCase() === 'select') {
                 if (!el.value || String(el.value).trim() === '') {
-                  const name = labelText || (el.name || el.id) || 'Unnamed select';
+                  const name = labelText || el.name || el.id || el.getAttribute('placeholder') || el.getAttribute('aria-label') || 'Field (no label)';
                   errors.push(`Required: ${name}`);
                 }
                 return;
@@ -923,7 +930,7 @@ document.addEventListener('DOMContentLoaded', function () {
               // For text inputs and textareas, require non-empty
               const val = (el.value || '').toString().trim();
               if (!val) {
-                const name = labelText || (el.name || el.id) || 'Unnamed field';
+                const name = labelText || el.name || el.id || el.getAttribute('placeholder') || el.getAttribute('aria-label') || 'Field (no label)';
                 errors.push(`Required: ${name}`);
               }
             } catch (e) {
@@ -1063,9 +1070,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       }
 
+      // mark the form to indicate we're completing and let the form submit handler perform validation
       const status = document.getElementById('ticketStatus');
       if (status) status.value = 'complete';
-      // use requestSubmit so the form's submit handler runs
+      try { console.log('Complete button: submitting form via requestSubmit'); } catch(e) {}
       try { form.requestSubmit(); } catch (e) { form.submit(); }
     });
   })();

@@ -346,13 +346,10 @@ router.post('/mechanic', (req, res) => {
         db.run("ALTER TABLE tickets ADD COLUMN repairOrderNumber TEXT", [], (err2) => {
             if (err2) console.error('Failed to add repairOrderNumber column to tickets table', err2);
             chooseAndInsert('repairOrderNumber');
-        });
-    });
 });
 });
-
-
-
+});
+});
 router.post('/mechanic/vehicle-info', (req, res) => {
     const db = req.app.locals.db;
     if (!db) return res.status(500).json({ success: false, message: 'Database not available' });

@@ -1283,12 +1283,9 @@ router.post('/upload-video', videoUpload.single('video'), (req, res) => {
 
     const file = req.file;
     const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
-
-    // accept several common field names from the client (ticketID, ticketId, id)
-    const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id)) || null;
     const insertSql = `INSERT INTO videos (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
                      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
-    const params = [ticketIdValue, file.filename, file.originalname, relativePath, file.mimetype, file.size];
+    const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath, file.mimetype, file.size];
 
     db.run(insertSql, params, function (err) {
         if (err) {
@@ -1318,25 +1315,12 @@ router.post('/upload-image', imageUpload.array('image'), (req, res) => {
     let pending = req.files.length;
 
     req.files.forEach((file) => {
-            const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
-        // accept several common field names from the client (ticketID, ticketId, id)
-        // fallback to query params and Referer URL (if present)
-        const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id))
-            || (req.query && (req.query.ticketID || req.query.ticketId || req.query.id))
-            || (() => {
-                const ref = req.get('referer') || req.get('referrer') || '';
-                try {
-                    const u = new URL(ref);
-                    return u.searchParams.get('id') || u.searchParams.get('ticketId') || u.searchParams.get('ticketID') || null;
-                } catch (e) {
-                    return null;
-                }
-            })() || null;
-         const insertSql = `INSERT INTO pictures (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
-                      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
-         const params = [ticketIdValue, file.filename, file.originalname, relativePath, file.mimetype, file.size];
+        const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
+        const insertSql = `INSERT INTO pictures (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
+                     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
+        const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath, file.mimetype, file.size];
 
-         db.run(insertSql, params, function (err) {
+        db.run(insertSql, params, function (err) {
             if (err) {
                 console.error('upload-image: DB insert failed for', file.filename, err);
                 // remove file to avoid orphans
@@ -1365,11 +1349,9 @@ router.post('/upload-signature', signatureUpload.single('signature'), (req, res)
 
     const file = req.file;
     const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
-    // accept several common field names from the client (ticketID, ticketId, id)
-    const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id)) || null;
     const insertSql = `INSERT INTO signatures (ticketID, filename, originalName, relativePath, uploadDate)
                      VALUES (?, ?, ?, ?, datetime('now'))`;
-    const params = [ticketIdValue, file.filename, file.originalname, relativePath];
+    const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath];
 
     db.run(insertSql, params, function (err) {
         if (err) {

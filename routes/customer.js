@@ -1,7 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
-const fs = require('fs');
 
 router.get('/customer', (req, res) => {
     const userCookie = req.cookies.user;
@@ -219,28 +217,6 @@ router.get('/customer', (req, res) => {
                             // Remove duplicates and trim
                             const uniq = (arr) => Array.from(new Set((arr || []).map(a => String(a).trim()).filter(Boolean)));
                             
-                            // fetch latest uploaded video for this ticket (if any)
-                            let video = null;
-                            try {
-                                const vids = await dbAll(`SELECT * FROM videos WHERE ticketID = ? ORDER BY id DESC LIMIT 1`, [ticketId]);
-                                if (Array.isArray(vids) && vids.length > 0) {
-                                    video = vids[0];
-                                    if (video.relativePath) {
-                                        video.webPath = '/' + String(video.relativePath).replace(/\\/g, '/').replace(/^\/+/, '');
-                                    }
-                                }
-                            } catch (vErr) {
-                                console.error('Failed fetching video for ticket:', vErr);
-                                video = null;
-                            }
-
-                            if (video) {
-                                console.log('video DB row:', video);
-                                const expected = path.join(__dirname, '..', video.relativePath || '');
-                                console.log('expected disk path:', expected, 'exists=', fs.existsSync(expected));
-                                console.log('video.webPath:', video.webPath);
-                            }
-                            
                             res.render('customer', {
                                 user: user,
                                 ticket: ticket,
@@ -250,7 +226,6 @@ router.get('/customer', (req, res) => {
                                      monitorItems: uniq(monitorItems),
                                      badItems: uniq(badItems)
                                 },
-                                video: video,
                                 totals: {
                                     partsSubtotal: partsSubtotal.toFixed(2),
                                     laborSubtotal: laborSubtotal.toFixed(2),
@@ -267,7 +242,6 @@ router.get('/customer', (req, res) => {
                                 repairs: repairs,
                                 vehicle: vehicle || {},
                                 inspection: { monitorItems: [], badItems: [] },
-                                video: null,
                                 totals: {
                                     partsSubtotal: partsSubtotal.toFixed(2),
                                     laborSubtotal: laborSubtotal.toFixed(2),

@@ -2,7 +2,7 @@ CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE
 );
-
+ 
 CREATE TABLE tickets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     repairOrderNumber TEXT NOT NULL UNIQUE,
@@ -22,7 +22,7 @@ CREATE TABLE tickets (
     customerSignature TEXT,
     stat TEXT
 );
-
+ 
 CREATE TABLE recRepairs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketId INTEGER NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE recRepairs (
     laborHours REAL NOT NULL,
     laborTotal REAL NOT NULL
 );
-
+ 
 CREATE TABLE vechicleInfo (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
@@ -52,14 +52,14 @@ CREATE TABLE vechicleInfo (
     plate TEXT NOT NULL,
     comments TEXT
 );
-
+ 
 CREATE TABLE courtesyTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
     item TEXT NOT NULL,
     comments TEXT
 );
-
+ 
 CREATE TABLE courtesyTableItems (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tableID INTEGER NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE courtesyTableItems (
     status TEXT NOT NULL,
     notes TEXT
 );
-
+ 
 CREATE TABLE tires (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
@@ -84,14 +84,14 @@ CREATE TABLE tires (
     alignment TEXT NOT NULL,
     comments TEXT
 );
-
+ 
 CREATE TABLE steeringSuspension (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
     item TEXT NOT NULL,
     comments
 );
-
+ 
 CREATE TABLE steeringSuspensionTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     steeringSuspensionID INTEGER NOT NULL,
@@ -101,14 +101,14 @@ CREATE TABLE steeringSuspensionTable (
     front TEXT,
     rear TEXT
 );
-
+ 
 CREATE TABLE brakes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
     item TEXT NOT NULL,
     comments
 );
-
+ 
 CREATE TABLE brakesTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     brakesID INTEGER NOT NULL,
@@ -116,15 +116,15 @@ CREATE TABLE brakesTable (
     Spec TEXT,
     actual TEXT
 );
-
+ 
 CREATE TABLE emissionsTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     emissionsID INTEGER NOT NULL,
     item TEXT NOT NULL,
     status TEXT NOT NULL,
-    notes TEXT 
+    notes TEXT
 );
-
+ 
 CREATE TABLE emissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
@@ -136,13 +136,13 @@ CREATE TABLE emissions (
     reInspectedBy TEXT NOT NULL,
     comments TEXT
 );
-
+ 
 CREATE TABLE warningsTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     emissionsID INTEGER NOT NULL,
     item TEXT NOT NULL
 );
-
+ 
 CREATE TABLE pictures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER,
@@ -153,7 +153,7 @@ CREATE TABLE pictures (
     sizeBytes INTEGER NOT NULL,
     uploadDate TEXT DEFAULT (datetime('now'))
 );
-
+ 
 CREATE TABLE videos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER,
@@ -164,7 +164,7 @@ CREATE TABLE videos (
     sizeBytes INTEGER NOT NULL,
     uploadDate TEXT DEFAULT (datetime('now'))
 );
-
+ 
 CREATE TABLE signatures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER,
@@ -173,9 +173,9 @@ CREATE TABLE signatures (
     relativePath TEXT NOT NULL,
     uploadDate TEXT DEFAULT (datetime('now'))
 )
-
+ 
 -- "uploads/ filenamefromdb" + ".png"
-
+ 
 -- INSERT INTO courtesy (ticketID, partName, status, notes)
 -- VALUES
 -- (2, 'Brakes', 'Needs Service', 'Brake pads are worn.'),

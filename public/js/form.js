@@ -705,12 +705,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (courtesy) {
           const table = courtesy.querySelector('table');
           if (table) {
-            const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').trim());
+            const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').trim());
             const rows = Array.from(table.querySelectorAll('tbody tr'));
             const courtesyErrors = [];
             rows.forEach((row, rowIdx) => {
               const firstCell = row.querySelector('td');
-              const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx+1}`;
+              const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx + 1}`;
               const selects = Array.from(row.querySelectorAll('select'));
               selects.forEach((sel) => {
                 if (!sel.value || String(sel.value).trim() === '') {
@@ -731,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const cellIdx = Array.from(cell.parentElement.children).indexOf(cell);
                     const isLastColumn = cellIdx === (row.children.length - 1);
                     if (isLastColumn) return;
-                    const header = headers[cellIdx] || `Column ${cellIdx+1}`;
+                    const header = headers[cellIdx] || `Column ${cellIdx + 1}`;
                     const val = (inp.value || '').toString().trim();
                     if (!val) courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
                   }
@@ -809,42 +809,37 @@ document.addEventListener('DOMContentLoaded', function () {
         return false;
       }
 
-      // all good -> upload signature (so server stores PNG) then submit
+      // upload signature (so server stores PNG) then submit
       if (signatureData && signatureData.value) {
         try {
-          // do not upload from client. create filename/path and leave dataURL in signatureData.
-          // server can save the dataURL to disk using these values when processing the form.
-          const fileInfo = createSignatureFileInfo();
-          // ensure hidden inputs for server-side form processing
-          let sigFileEl = document.getElementById('signatureFilename');
+          // put the dataURL into a hidden input named "signature" so router.post('/mechanic') can save it
+          let sigEl = document.querySelector('input[name="signature"]') || document.getElementById('signature');
+          if (!sigEl) {
+            sigEl = document.createElement('input');
+            sigEl.type = 'hidden';
+            sigEl.name = 'signature';
+            sigEl.id = 'signature';
+            form.appendChild(sigEl);
+          }
+          sigEl.value = signatureData.value;
+
+          // optionally include client filename (server will sanitize/use or ignore)
+          let sigFileEl = document.querySelector('input[name="signatureFilename"]') || document.getElementById('signatureFilename');
           if (!sigFileEl) {
             sigFileEl = document.createElement('input');
             sigFileEl.type = 'hidden';
-            sigFileEl.id = 'signatureFilename';
             sigFileEl.name = 'signatureFilename';
+            sigFileEl.id = 'signatureFilename';
             form.appendChild(sigFileEl);
           }
-          let sigPathEl = document.getElementById('signaturePath');
-          if (!sigPathEl) {
-            sigPathEl = document.createElement('input');
-            sigPathEl.type = 'hidden';
-            sigPathEl.id = 'signaturePath';
-            sigPathEl.name = 'signaturePath';
-            form.appendChild(sigPathEl);
-          }
-          // ensure signatureData contains the PNG dataURL; if not, create from canvas
-          const canvas = document.getElementById('signatureCanvas');
-          if ((!signatureData.value || signatureData.value === '') && canvas) {
-            try { signatureData.value = canvas.toDataURL('image/png'); } catch (e) { /* ignore */ }
-          }
-          sigFileEl.value = fileInfo.filename;
-          sigPathEl.value = fileInfo.relativePath;
+          if (!sigFileEl.value) sigFileEl.value = (createSignatureFileInfo && createSignatureFileInfo().filename) || 'signature.png';
+
         } catch (err) {
-          console.error('Signature processing failed:', err);
-          showErrors(['Failed to process signature. Please try again.']);
+          console.error('Signature upload failed:', err);
+          showErrors(['Failed to upload signature. Please try again.']);
           return false;
         }
-      } // end if (signatureData && signatureData.value)
+      }
 
       // If completing the ticket, enforce full Digital Courtesy Check validation
       const ticketStatusEl = document.getElementById('ticketStatus');
@@ -860,7 +855,7 @@ document.addEventListener('DOMContentLoaded', function () {
               const selects = Array.from(row.querySelectorAll('select'));
               selects.forEach((sel) => {
                 if (!sel.value || String(sel.value).trim() === '') {
-                  errors.push(`Courtesy Check row ${idx+1}: status must be selected.`);
+                  errors.push(`Courtesy Check row ${idx + 1}: status must be selected.`);
                 }
               });
 
@@ -871,7 +866,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 inputs.forEach((inp, i) => {
                   if (i === inputs.length - 1) return; // skip notes
                   if (!String(inp.value || '').trim()) {
-                    errors.push(`Courtesy Check row ${idx+1}: required field is empty.`);
+                    errors.push(`Courtesy Check row ${idx + 1}: required field is empty.`);
                   }
                 });
               }
@@ -892,7 +887,7 @@ document.addEventListener('DOMContentLoaded', function () {
               // skip file inputs and buttons
               if (el.type === 'file' || el.type === 'button' || el.type === 'submit') return;
               // skip known hidden helpers
-              const skipNames = ['repairs','tags','signature','ticketStatus','subTotParts','subTotLabor','tax','totEstimate','timeIn','timeOut','timeInHour','timeInMinute','timeInAmPm','timeOutHour','timeOutMinute','timeOutAmPm','totTime'];
+              const skipNames = ['repairs', 'tags', 'signature', 'ticketStatus', 'subTotParts', 'subTotLabor', 'tax', 'totEstimate', 'timeIn', 'timeOut', 'timeInHour', 'timeInMinute', 'timeInAmPm', 'timeOutHour', 'timeOutMinute', 'timeOutAmPm', 'totTime'];
               if (el.name && skipNames.includes(el.name)) return;
               if (el.id && skipNames.includes(el.id)) return;
 
@@ -980,7 +975,7 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', validateAndSubmit);
 
   })();
-  
+
   // --- Brake pads/rotors color coding based on thickness ---
   (function initBrakeColorCoding() {
     const brakesSection = document.getElementById('brakes');
@@ -1030,12 +1025,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (courtesy) {
         const table = courtesy.querySelector('table');
         if (table) {
-          const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').trim());
+          const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').trim());
           const rows = Array.from(table.querySelectorAll('tbody tr'));
           const courtesyErrors = [];
           rows.forEach((row, rowIdx) => {
             const firstCell = row.querySelector('td');
-            const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx+1}`;
+            const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx + 1}`;
             const selects = Array.from(row.querySelectorAll('select'));
             selects.forEach((sel) => {
               if (!sel.value || String(sel.value).trim() === '') {
@@ -1056,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', function () {
                   const cellIdx = Array.from(cell.parentElement.children).indexOf(cell);
                   const isLastColumn = cellIdx === (row.children.length - 1);
                   if (isLastColumn) return;
-                  const header = headers[cellIdx] || `Column ${cellIdx+1}`;
+                  const header = headers[cellIdx] || `Column ${cellIdx + 1}`;
                   const val = (inp.value || '').toString().trim();
                   if (!val) courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
                 }
@@ -1125,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', function () {
           var tbody = document.querySelector('#repairs-table tbody');
           if (tbody) {
             tbody.innerHTML = '';
-            ticket.repairs.forEach(function(r){
+            ticket.repairs.forEach(function (r) {
               var tr = document.createElement('tr');
               tr.innerHTML = `
                 <td><input type="text" class="rp-desc" placeholder="Description"></td>
@@ -1139,16 +1134,16 @@ document.addEventListener('DOMContentLoaded', function () {
               `;
               tbody.appendChild(tr);
               // fill values
-              try { tr.querySelector('.rp-desc').value = r.repairDescription || ''; } catch (e) {}
-              try { tr.querySelector('.rp-qty').value = (r.qty != null) ? r.qty : ''; } catch (e) {}
-              try { tr.querySelector('.rp-um').value = r.partNumber || ''; } catch (e) {}
-              try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch (e) {}
-              try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch (e) {}
-              try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch (e) {}
-              try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch (e) {}
+              try { tr.querySelector('.rp-desc').value = r.repairDescription || ''; } catch (e) { }
+              try { tr.querySelector('.rp-qty').value = (r.qty != null) ? r.qty : ''; } catch (e) { }
+              try { tr.querySelector('.rp-um').value = r.partNumber || ''; } catch (e) { }
+              try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch (e) { }
+              try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch (e) { }
+              try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch (e) { }
+              try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch (e) { }
               // wire the row behaviors already present in the page if available
-              try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch(e){}
-              try { if (typeof wireRow === 'function') wireRow(tr); } catch(e){}
+              try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch (e) { }
+              try { if (typeof wireRow === 'function') wireRow(tr); } catch (e) { }
             });
             // update subtotals after populating: attempt to call existing helper, otherwise compute locally
             try {
@@ -1175,17 +1170,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const subLaborEl = document.getElementById('subTotLabor');
                 const taxEl = document.getElementById('tax');
                 const totEstimateEl = document.getElementById('totEstimate');
-                function fmt(n){ return (Math.round(n * 100) / 100).toFixed(2); }
+                function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2); }
                 if (subPartsEl) subPartsEl.value = fmt(partsSum);
                 if (subLaborEl) subLaborEl.value = fmt(laborSum);
                 const tax = partsSum * 0.06;
                 if (taxEl) taxEl.value = fmt(tax);
                 if (totEstimateEl) totEstimateEl.value = fmt(partsSum + tax);
               }
-            } catch(e){}
+            } catch (e) { }
           }
         }
-        
+
         // set time picker select values (if individual selects exist) by parsing the ticket.timeIn/timeOut
         function setTimeSelects(prefix, timeStr) {
           if (!timeStr) return;
@@ -1197,9 +1192,9 @@ document.addEventListener('DOMContentLoaded', function () {
           const hEl = document.getElementById(prefix + 'Hour');
           const mEl = document.getElementById(prefix + 'Minute');
           const pEl = document.getElementById(prefix + 'AmPm');
-          try { if (hEl) { hEl.value = String(parseInt(h,10)); hEl.dispatchEvent(new Event('change')); } } catch(e){}
-          try { if (mEl) { mEl.value = String(m).padStart(2,'0'); mEl.dispatchEvent(new Event('change')); } } catch(e){}
-          try { if (pEl) { pEl.value = period; pEl.dispatchEvent(new Event('change')); } } catch(e){}
+          try { if (hEl) { hEl.value = String(parseInt(h, 10)); hEl.dispatchEvent(new Event('change')); } } catch (e) { }
+          try { if (mEl) { mEl.value = String(m).padStart(2, '0'); mEl.dispatchEvent(new Event('change')); } } catch (e) { }
+          try { if (pEl) { pEl.value = period; pEl.dispatchEvent(new Event('change')); } } catch (e) { }
         }
 
         setTimeSelects('timeIn', ticket.timeIn);
@@ -1225,7 +1220,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const v = row[k] == null ? '' : row[k];
                     // find by name or id (case-insensitive)
                     const el = inputs.find(i => ((i.name && i.name.toLowerCase() === lk) || (i.id && i.id.toLowerCase() === lk)));
-                    if (el) { try { el.value = v; el.dispatchEvent(new Event('change')); } catch (e) {} }
+                    if (el) { try { el.value = v; el.dispatchEvent(new Event('change')); } catch (e) { } }
                   });
                 } catch (e) { console.warn('setFormValuesFromRow error', e); }
               }
@@ -1255,17 +1250,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     <td><button type="button" class="remove-repair-line">Remove</button></td>
                   `;
                   tbody.appendChild(tr);
-                  try { tr.querySelector('.rp-desc').value = r.repairDescription || r.item || ''; } catch(e){}
-                  try { tr.querySelector('.rp-qty').value = r.qty || ''; } catch(e){}
-                  try { tr.querySelector('.rp-um').value = r.partNumber || r.part || ''; } catch(e){}
-                  try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch(e){}
-                  try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch(e){}
-                  try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch(e){}
-                  try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch(e){}
-                  try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch(e){}
-                  try { if (typeof wireRow === 'function') wireRow(tr); } catch(e){}
+                  try { tr.querySelector('.rp-desc').value = r.repairDescription || r.item || ''; } catch (e) { }
+                  try { tr.querySelector('.rp-qty').value = r.qty || ''; } catch (e) { }
+                  try { tr.querySelector('.rp-um').value = r.partNumber || r.part || ''; } catch (e) { }
+                  try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch (e) { }
+                  try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch (e) { }
+                  try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch (e) { }
+                  try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch (e) { }
+                  try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch (e) { }
+                  try { if (typeof wireRow === 'function') wireRow(tr); } catch (e) { }
                 });
-                try { if (typeof updateSubtotals === 'function') updateSubtotals(); } catch(e) {}
+                try { if (typeof updateSubtotals === 'function') updateSubtotals(); } catch (e) { }
                 return;
               }
 
@@ -1371,11 +1366,11 @@ document.addEventListener('DOMContentLoaded', function () {
                   if (!rowDom) return;
                   // set left/right/front/rear if present
                   try {
-                    ['left','right','front','rear'].forEach(col => {
-                      const val = r[col] || r[col.charAt(0).toUpperCase()+col.slice(1)] || '';
+                    ['left', 'right', 'front', 'rear'].forEach(col => {
+                      const val = r[col] || r[col.charAt(0).toUpperCase() + col.slice(1)] || '';
                       if (!val) return;
                       // find corresponding cell by header names
-                      const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h=> (h.textContent||'').toLowerCase());
+                      const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
                       const idx = headerCells.findIndex(h => h.includes(col));
                       if (idx !== -1 && rowDom.cells[idx]) {
                         const cell = rowDom.cells[idx];
@@ -1386,7 +1381,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             // if direct assign didn't match an option (select stays unchanged), try fuzzy-matching options by text/value
                             if (input.tagName && input.tagName.toLowerCase() === 'select') {
                               const cur = input.value;
-                              const norm = s => (s||'').toString().toLowerCase().trim();
+                              const norm = s => (s || '').toString().toLowerCase().trim();
                               if (norm(cur) !== norm(val)) {
                                 const opt = Array.from(input.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
                                 if (opt) input.value = opt.value;
@@ -1399,7 +1394,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         } else {
                           // No input/select in this cell — do not overwrite plain text dashes; try to find a select elsewhere in the row that corresponds to this header
                           try {
-                            const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h=> (h.textContent||'').toLowerCase());
+                            const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
                             // find select in same row whose header includes the column name
                             const sel = Array.from(rowDom.querySelectorAll('select')).find(s => {
                               try {
@@ -1411,13 +1406,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             if (sel) {
                               try {
                                 sel.value = val;
-                                const norm = s => (s||'').toString().toLowerCase().trim();
+                                const norm = s => (s || '').toString().toLowerCase().trim();
                                 if (norm(sel.value) !== norm(val)) {
                                   const opt = Array.from(sel.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
                                   if (opt) sel.value = opt.value;
                                 }
                                 sel.dispatchEvent(new Event('change'));
-                              } catch (e) {}
+                              } catch (e) { }
                             }
                           } catch (e) { /* ignore fallback */ }
                         }
@@ -1436,7 +1431,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const commentsInput = sec.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
                     if (commentsInput) commentsInput.value = parentComments;
                   }
-                } catch (e) {}
+                } catch (e) { }
                 return;
               }
 
@@ -1447,15 +1442,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 // helper to normalize labels
                 const normalize = s => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '').trim();
                 // find header indexes
-                const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent||'').toLowerCase());
+                const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
                 const findIdx = (keys) => {
                   const ks = Array.isArray(keys) ? keys : [keys];
                   return headerCells.findIndex(h => ks.some(k => h.includes(k)));
                 };
                 const specIdx = findIdx(['spec']);
-                const actualIdx = findIdx(['actual','value']);
+                const actualIdx = findIdx(['actual', 'value']);
                 const statusIdx = findIdx(['status']);
-                const commentsIdx = findIdx(['comment','notes','note']);
+                const commentsIdx = findIdx(['comment', 'notes', 'note']);
 
                 const unmatched = [];
                 rows.forEach(r => {
@@ -1488,7 +1483,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         input.value = val || '';
                         // if select didn't match, try fuzzy match on options
                         if (input.tagName && input.tagName.toLowerCase() === 'select') {
-                          const norm = s => (s||'').toString().toLowerCase().trim();
+                          const norm = s => (s || '').toString().toLowerCase().trim();
                           if (norm(input.value) !== norm(val)) {
                             const opt = Array.from(input.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
                             if (opt) input.value = opt.value;
@@ -1515,7 +1510,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const commentsInput = sec.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
                     if (commentsInput) commentsInput.value = parentComments;
                   }
-                } catch (e) {}
+                } catch (e) { }
                 return;
               }
 
@@ -1536,7 +1531,7 @@ document.addEventListener('DOMContentLoaded', function () {
                       const notes = r.notes || r.Notes || r.comments || '';
                       const sel = rowDom.querySelector('select'); if (sel && status) { sel.value = status; sel.dispatchEvent(new Event('change')); }
                       const ni = rowDom.querySelector('input[type="text"]'); if (ni && notes) ni.value = notes;
-                    } catch (e) {}
+                    } catch (e) { }
                   });
                 }
                 // Populate parent emissions fields and warnings from ticket.sections.emissions (if present)
@@ -1617,81 +1612,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     Object.keys(mapping).forEach(k => {
                       const keys = mapping[k];
                       let val = '';
-                      for (let i=0;i<keys.length;i++) { if (row[keys[i]] != null) { val = row[keys[i]]; break; } }
+                      for (let i = 0; i < keys.length; i++) { if (row[keys[i]] != null) { val = row[keys[i]]; break; } }
                       if (!val && row[k] != null) val = row[k];
                       if (val != null && val !== '') {
-                        // try to find input by id/name first
-                        let found = null;
-                        try {
-                          const inputs = Array.from(sec.querySelectorAll('input,select,textarea'));
-                          found = inputs.find(inp => {
-                            const id = (inp.id||'').toLowerCase(); const name = (inp.name||'').toLowerCase();
-                            return id.includes(k.toLowerCase()) || name.includes(k.toLowerCase());
-                          });
-                        } catch(e) { found = null; }
-
-                        // fallback: find by label text in the .form-grid groups
-                        if (!found) {
-                          try {
-                            const groups = Array.from(sec.querySelectorAll('.form-grid .form-group'));
-                            for (const g of groups) {
-                              const lbl = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
-                              if (!lbl) continue;
-                              // check any alias for this mapping
-                              const aliasMatch = keys.some(alias => lbl.includes(alias.toLowerCase()) || alias.toLowerCase().includes(lbl));
-                              if (aliasMatch || lbl.includes(k.toLowerCase())) {
-                                const inp = g.querySelector('input,select,textarea');
-                                if (inp) { found = inp; break; }
-                              }
-                            }
-                          } catch (e) { /* ignore */ }
-                        }
-
-                        if (found) { try { found.value = val; found.dispatchEvent(new Event('change')); } catch(e){} }
+                        // find input/select with label matching key
+                        const inputs = Array.from(sec.querySelectorAll('input,select,textarea'));
+                        const found = inputs.find(inp => {
+                          const id = (inp.id || '').toLowerCase(); const name = (inp.name || '').toLowerCase();
+                          return id.includes(k.toLowerCase()) || name.includes(k.toLowerCase());
+                        });
+                        if (found) { try { found.value = val; found.dispatchEvent(new Event('change')); } catch (e) { } }
                       }
                     });
                   }
-
-                  // populate parent fields (OBD..reInspectedBy) from ticket.sections.emissions if available
-                  try {
-                    const parent = (ticket && ticket.sections && (ticket.sections.emissions || ticket.sections['emissions'])) || null;
-                    if (parent) {
-                      const groups = Array.from(sec.querySelectorAll('.form-grid .form-group'));
-                      const mapKeys = {
-                        OBD: ['obd','obd/emissions','obd_emissions','obd'],
-                        inspections: ['inspections','inspection','inspected'],
-                        emissionsDue: ['emissionsdue','emissions_due','emissionsdue'],
-                        nextOilChange: ['nextoilchange','nextOilChange','next_oil_change','nextoilchange'],
-                        inspectedBy: ['inspectedby','inspectedBy','inspected_by'],
-                        reInspectedBy: ['reinspectedby','reInspectedBy','re_inspected_by']
-                      };
-                      Object.keys(mapKeys).forEach(k => {
-                        const aliases = mapKeys[k];
-                        // find matching group by label
-                        for (const g of groups) {
-                          const lbl = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
-                          if (!lbl) continue;
-                          const matched = aliases.some(a => lbl.includes(a.toLowerCase()) || a.toLowerCase().includes(lbl));
-                          if (matched) {
-                            const inp = g.querySelector('input,select,textarea');
-                            if (inp && (parent[k] != null && parent[k] !== '')) {
-                              try { inp.value = parent[k]; inp.dispatchEvent(new Event('change')); } catch(e) {}
-                            }
-                          }
-                        }
-                      });
-
-                      // populate parent comments (full-width)
-                      try {
-                        const parentComments = parent.comments || parent.emissionsComments || parent.comments || '';
-                        if (parentComments) {
-                          const commentsGroup = Array.from(sec.querySelectorAll('.form-group.full-width')).find(g => { const l=(g.querySelector('label')&&g.querySelector('label').textContent||'').toLowerCase(); return l.includes('comment'); });
-                          const cinput = commentsGroup && commentsGroup.querySelector('input,textarea');
-                          if (cinput) { cinput.value = parentComments; cinput.dispatchEvent(new Event('change')); }
-                        }
-                      } catch(e) {}
-                    }
-                  } catch(e) {}
                 }
                 return;
               }
@@ -1708,11 +1641,11 @@ document.addEventListener('DOMContentLoaded', function () {
                   list.innerHTML = '';
                   items.forEach((t) => {
                     const chip = document.createElement('div'); chip.className = 'tag-chip'; chip.textContent = t;
-                    const x = document.createElement('button'); x.type='button'; x.className='tag-remove'; x.textContent='×';
+                    const x = document.createElement('button'); x.type = 'button'; x.className = 'tag-remove'; x.textContent = '×';
                     x.addEventListener('click', () => { /* no-op on load */ });
                     chip.appendChild(x); list.appendChild(chip);
                   });
-                } catch (e) {}
+                } catch (e) { }
                 return;
               }
             });
@@ -1742,7 +1675,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 if (!row) return;
                 Object.keys(item).forEach(key => {
-                  if (['item','name','label'].includes(key)) return;
+                  if (['item', 'name', 'label'].includes(key)) return;
                   const val = item[key];
                   const headerIndex = headers.findIndex(h => h.includes(key.toLowerCase()) || key.toLowerCase().includes(h));
                   let cell = null;
@@ -1750,11 +1683,11 @@ document.addEventListener('DOMContentLoaded', function () {
                   if (!cell) {
                     // fallback: find input/select by name or class
                     const el = row.querySelector(`[name="${key}"], .${key}`);
-                    if (el) { try { el.value = val; el.dispatchEvent(new Event('change')); } catch (e) {} }
+                    if (el) { try { el.value = val; el.dispatchEvent(new Event('change')); } catch (e) { } }
                     return;
                   }
                   const input = cell.querySelector('select, input, textarea');
-                  if (input) { try { input.value = val; input.dispatchEvent(new Event('change')); } catch (e) {} }
+                  if (input) { try { input.value = val; input.dispatchEvent(new Event('change')); } catch (e) { } }
                   else { cell.textContent = val; }
                 });
               });
@@ -1812,7 +1745,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if ('disabled' in el) el.disabled = true;
           else el.setAttribute('aria-disabled', 'true');
           // make unfocusable
-          try { el.tabIndex = -1; } catch (e) {}
+          try { el.tabIndex = -1; } catch (e) { }
         } catch (e) { /* ignore individual failures */ }
       });
 
@@ -1833,7 +1766,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
 
       // explicitly disable media upload controls when in view-only mode
-      const uploadControls = ['video-upload-zone','video-file','upload-trigger','upload-btn','image-upload-zone','image-file','image-upload-trigger','image-upload-btn'];
+      const uploadControls = ['video-upload-zone', 'video-file', 'upload-trigger', 'upload-btn', 'image-upload-zone', 'image-file', 'image-upload-trigger', 'image-upload-btn'];
       uploadControls.forEach(id => {
         try {
           const el = document.getElementById(id);
@@ -1938,7 +1871,6 @@ document.addEventListener('DOMContentLoaded', function () {
   else bind();
 })();
 
-
 // --- Steering & Suspension: save rows (item/left/right/front/rear) + comments to /mechanic/steering-suspension ---
 (function wireSteeringSave() {
   const bind = function () {
@@ -1963,7 +1895,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const items = [];
         if (table) {
           const rows = Array.from(table.querySelectorAll('tbody tr'));
-          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').toLowerCase());
+          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
           // helper to find column index by header keyword
           const findColIdx = (keywords) => {
             const k = Array.isArray(keywords) ? keywords : [keywords];
@@ -2040,7 +1972,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // --- Brakes: save brakes table rows to /mechanic/brakes ---
 (function wireBrakesSave() {
-  const bind = function() {
+  const bind = function () {
     try {
       const saveBtn = document.querySelector('.section-save[data-section="brakes"]');
       const brakesSection = document.getElementById('brakes');
@@ -2061,15 +1993,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const items = [];
         if (table) {
           const rows = Array.from(table.querySelectorAll('tbody tr'));
-          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').toLowerCase());
+          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
           const findIdx = (keys) => {
             const ks = Array.isArray(keys) ? keys : [keys];
             return headerCells.findIndex(h => ks.some(k => h.includes(k)));
           };
           const specIdx = findIdx(['spec']);
-          const actualIdx = findIdx(['actual','value']);
+          const actualIdx = findIdx(['actual', 'value']);
           const statusIdx = findIdx(['status']);
-          const commentsIdx = findIdx(['comment','notes','note']);
+          const commentsIdx = findIdx(['comment', 'notes', 'note']);
 
           rows.forEach(row => {
             try {
@@ -2123,94 +2055,8 @@ document.addEventListener('DOMContentLoaded', function () {
   else bind();
 })();
 
-// --- Emissions: save emissions table, middle info, and warnings to /mechanic/emissions ---
-(function wireEmissionsSave() {
-  const bind = function() {
-    try {
-      const saveBtn = document.querySelector('.section-save[data-section="emissions"]');
-      const emissionsSection = document.getElementById('emissions');
-      if (!saveBtn || !emissionsSection) return;
-      if (saveBtn.dataset.boundEmissionsSave === '1') return;
-      saveBtn.dataset.boundEmissionsSave = '1';
-
-      saveBtn.addEventListener('click', async function(e) {
-        e.preventDefault(); e.stopPropagation();
-        const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
-        if (!ticketId) { console.error('Cannot save emissions: missing ticket id. Save Repair Order first.'); return; }
-
-        // collect table rows
-        const table = emissionsSection.querySelector('table');
-        const items = [];
-        if (table) {
-          const rows = Array.from(table.querySelectorAll('tbody tr'));
-          rows.forEach(row => {
-            try {
-              const item = (row.cells && row.cells[0] ? row.cells[0].textContent : '').trim();
-              if (!item) return;
-              const status = row.querySelector('select') ? (row.querySelector('select').value || '').trim() : '';
-              const notes = row.querySelector('input[type="text"], textarea') ? (row.querySelector('input[type="text"], textarea').value || '').trim() : '';
-              items.push({ item, status, notes });
-            } catch (e) { /* ignore row */ }
-          });
-        }
-
-        // collect middle emissions info
-        const emissionsInfo = {};
-        try {
-          const selects = emissionsSection.querySelectorAll('.form-grid .form-group');
-          // find inputs by label text
-          const groups = Array.from(emissionsSection.querySelectorAll('.form-grid .form-group'));
-          groups.forEach(g => {
-            const label = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
-            const input = g.querySelector('input,select,textarea');
-            if (!input) return;
-            const val = input.value || '';
-            if (label.includes('obd')) emissionsInfo.OBD = val;
-            else if (label.includes('state') || label.includes('inspection')) emissionsInfo.inspections = val;
-            else if (label.includes('emission') && label.includes('due')) emissionsInfo.emissionsDue = val;
-            else if (label.includes('next oil') || label.includes('next oil change')) emissionsInfo.nextOilChange = val;
-            else if (label.includes('inspected by') && !label.includes('re-')) emissionsInfo.inspectedBy = val;
-            else if (label.includes('re-inspected') || label.includes('re inspected')) emissionsInfo.reInspectedBy = val;
-          });
-        } catch (e) { /* ignore */ }
-
-        // tags (warnings)
-        const tagsHidden = document.getElementById('tags-hidden');
-        let tags = [];
-        if (tagsHidden && tagsHidden.value) tags = tagsHidden.value.split(',').map(s=>s.trim()).filter(Boolean);
-
-        // parent comments - find the full-width form-group whose label contains 'comment'
-        let parentCommentsInput = null;
-        try {
-          const fullGroups = Array.from(emissionsSection.querySelectorAll('.form-group.full-width'));
-          for (const g of fullGroups) {
-            const lbl = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
-            if (lbl.includes('comment')) { parentCommentsInput = g.querySelector('input[type="text"], textarea'); break; }
-          }
-        } catch (e) {}
-        if (!parentCommentsInput) parentCommentsInput = emissionsSection.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
-        const parentComments = parentCommentsInput ? (parentCommentsInput.value || '').trim() : '';
-
-        // assemble payload
-        console.log('Emissions save - parentComments (client):', parentComments);
-        const payload = { ticketId, items, emissions: emissionsInfo, tags, comments: parentComments };
-
-        try {
-          const res = await fetch('/mechanic/emissions', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-          });
-          if (res.status === 204) { console.log('Emissions saved (204)'); return; }
-          if (res.ok) { let p = null; try { p = await res.json(); } catch(e){ } if (p && p.success) { console.log('Emissions saved'); return; } console.warn('Emissions save unexpected ok response', res.status, p); return; }
-          let err = null; try { err = await res.json(); } catch(e) { err = null; } console.error('Emissions save failed', res.status, err);
-        } catch (err) { console.error('Emissions save failed', err); }
-      });
-    } catch (err) { console.warn('wireEmissionsSave error', err); }
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
-})();
-
- // --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
- (function wireVehicleInfoForm() {
+// --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
+(function wireVehicleInfoForm() {
   try {
     const vForm = document.getElementById('vehicle-info-form');
     if (!vForm) return;
@@ -2296,7 +2142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      // ensure ticketId included (fallback to server-injected object)
+      // ensure ticketId included (fallback to server-inserted object)
       if (!obj.ticketId && window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) obj.ticketId = window.__SERVER_TICKET__.id;
 
       try {
@@ -2321,3 +2167,112 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { capture: true });
   }
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+  const signatureCanvas = document.getElementById('signatureCanvas');
+  const clearBtn = document.getElementById('clearSignature');
+  const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
+  console.log('Signature save & ticketId:', ticketId, "canvas", !!signatureCanvas, "btn", !!clearBtn);
+
+  // --- Load saved signature for ticket (if present) ---
+  function loadSavedSignatureForTicket(ticketId) {
+    if (!ticketId) return;
+    const endpoint = '/mechanic/ticket-check';
+    console.log('loadSavedSignatureForTicket: POST', endpoint, { ticketId });
+
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticketId: String(ticketId) })
+    })
+      .then(res => {
+        if (!res.ok) {
+          console.log('loadSavedSignatureForTicket: fetch failed', res.status);
+          return null;
+        }
+        return res.json().catch(() => null);
+      })
+      .then(json => {
+        if (!json) return;
+        if (!json.success || !json.signature) {
+          console.log('loadSavedSignatureForTicket: no signature in response', json);
+          return;
+        }
+        const sig = json.signature;
+
+        // ensure hidden inputs are present for form submit
+        const form = document.getElementById('repForm') || document.querySelector('form');
+        const ensureHidden = (name, id) => {
+          let el = form && form.querySelector(`input[name="${name}"]`);
+          if (!el) el = document.getElementById(id);
+          if (!el) {
+            el = document.createElement('input');
+            el.type = 'hidden';
+            el.name = name;
+            if (id) el.id = id;
+            form && form.appendChild(el);
+          }
+          return el;
+        };
+        const idEl = ensureHidden('signatureId', 'signatureId');
+        const fileEl = ensureHidden('signatureFilename', 'signatureFilename');
+        const pathEl = ensureHidden('signaturePath', 'signaturePath');
+
+        idEl.value = String(sig.id || '');
+        fileEl.value = String(sig.filename || sig.originalName || '');
+        pathEl.value = String(sig.relativePath || sig.path || '');
+
+        // remove clear button and swap canvas for image
+        const container = document.querySelector('.form-grid') || document;
+        const canvas = container.querySelector('#signatureCanvas');
+        const clearBtn = container.querySelector('#clearSignature');
+        if (clearBtn && clearBtn.parentNode) clearBtn.parentNode.removeChild(clearBtn);
+
+        const img = document.createElement('img');
+        img.alt = 'Customer signature';
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+        if (sig.relativePath || sig.path) img.src = '/' + (sig.relativePath || sig.path).replace(/^\/+/, '');
+        else {
+          const sigDataField = container.querySelector('#signatureData, input[name="signatureData"]');
+          if (sigDataField && sigDataField.value) img.src = sigDataField.value;
+        }
+
+        if (canvas && canvas.parentNode) canvas.parentNode.replaceChild(img, canvas);
+        console.log('loadSavedSignatureForTicket: signature applied for ticket', ticketId);
+      })
+      .catch(err => {
+        console.error('loadSavedSignatureForTicket fetch error', err);
+      });
+  }
+
+  // Minimal, reliable ticket-id check that calls loadSavedSignatureForTicket once an id is available.
+  const tryLoad = () => {
+    const id =
+      (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
+      document.getElementById('vehicle-ticketId')?.value ||
+      document.getElementById('ticketId')?.value ||
+      document.getElementById('ticketIdHidden')?.value ||
+      '';
+    if (id) {
+      // call the existing loader (no-op if already applied)
+      try { loadSavedSignatureForTicket(String(id)); } catch (e) { console.error('loadSavedSignatureForTicket error', e); }
+      return true;
+    }
+    return false;
+  };
+
+  // attempt immediately
+  if (!tryLoad()) {
+    // if not present yet, listen for changes on likely inputs and try again once
+    const watch = document.querySelector('#vehicle-ticketId, #ticketId, #ticketIdHidden');
+    if (watch) {
+      const onChange = () => { tryLoad(); watch.removeEventListener('change', onChange); };
+      watch.addEventListener('change', onChange);
+    } else {
+      // fallback: re-attempt after a short delay (covers server-inserted inputs)
+      setTimeout(tryLoad, 500);
+    }
+  }
+});
+

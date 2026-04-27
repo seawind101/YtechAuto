@@ -33,7 +33,7 @@ router.post('/mechanic/completeTicket', (req, res) => {
             console.error('Failed to complete ticket', err);
             return res.status(500).json({ error: 'Failed to complete ticket' });
         }
-       res.redirect('/Ticket');
+        return res.sendStatus(204);
     });
 });
 module.exports = router;

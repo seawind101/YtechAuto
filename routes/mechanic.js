@@ -12,6 +12,63 @@ fs.mkdirSync(videoDir, { recursive: true });
 fs.mkdirSync(imageDir, { recursive: true });
 fs.mkdirSync(signatureDir, { recursive: true });
 
+// save signature dataURL to signatures table (insert -> write -> update)
+async function saveSignatureFromDataUrl(db, dataUrl, clientName) {
+    return new Promise((resolve, reject) => {
+        if (!dataUrl || typeof dataUrl !== 'string') return resolve(null);
+        const comma = dataUrl.indexOf(',');
+        if (comma === -1) return resolve(null);
+        const b64 = dataUrl.slice(comma + 1);
+        let buffer;
+        try { buffer = Buffer.from(b64, 'base64'); } catch (e) { return resolve(null); }
+
+        const ensureSql = `
+          CREATE TABLE IF NOT EXISTS signatures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticketID INTEGER,
+            filename TEXT NOT NULL,
+            originalName TEXT NOT NULL,
+            relativePath TEXT NOT NULL,
+            uploadDate TEXT DEFAULT (datetime('now'))
+          )`;
+        db.run(ensureSql, (ensureErr) => {
+            if (ensureErr) return reject(ensureErr);
+
+            const tempName = `signature-pending-${Date.now()}.tmp`;
+            const tempRel = path.join('upload', 'signatures', tempName).split(path.sep).join('/');
+            const insertSql = `INSERT INTO signatures (ticketID, filename, originalName, relativePath, uploadDate)
+                               VALUES (?, ?, ?, ?, datetime('now'))`;
+            db.run(insertSql, [null, tempName, clientName || tempName, tempRel], function (insertErr) {
+                if (insertErr) return reject(insertErr);
+                const sigId = this.lastID;
+                const finalName = (clientName && path.basename(String(clientName))) || `signature-${sigId}.png`;
+                const savePath = path.join(signatureDir, finalName);
+                fs.writeFile(savePath, buffer, (writeErr) => {
+                    if (writeErr) {
+                        // remove placeholder row on failure
+                        db.run('DELETE FROM signatures WHERE id = ?', [sigId], () => {
+                            return reject(writeErr);
+                        });
+                        return;
+                    }
+                    const relPath = path.relative(path.join(__dirname, '..'), savePath).split(path.sep).join('/');
+                    const updateSql = `UPDATE signatures SET filename = ?, relativePath = ? WHERE id = ?`;
+                    db.run(updateSql, [finalName, relPath, sigId], function (updErr) {
+                        if (updErr) {
+                            try { fs.unlinkSync(savePath); } catch (e) { /* ignore */ }
+                            db.run('DELETE FROM signatures WHERE id = ?', [sigId], () => {
+                                return reject(updErr);
+                            });
+                            return;
+                        }
+                        return resolve({ id: sigId, filename: finalName, relativePath: relPath });
+                    });
+                });
+            });
+        });
+    });
+}
+
 // video storage
 const videoStorage = multer.diskStorage({
     destination: function (req, file, cb) { cb(null, videoDir); },
@@ -49,12 +106,12 @@ const imageUpload = multer({
 
 // signature storage + multipart upload route
 const signatureStorage = multer.diskStorage({
-  destination: function (req, file, cb) { cb(null, signatureDir); },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname) || '.png';
-    cb(null, 'signature-' + uniqueSuffix + ext);
-  }
+    destination: function (req, file, cb) { cb(null, signatureDir); },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const ext = path.extname(file.originalname) || '.png';
+        cb(null, 'signature-' + uniqueSuffix + ext);
+    }
 });
 
 const signatureUpload = multer({
@@ -112,7 +169,7 @@ router.get('/mechanic', (req, res) => {
                           WHERE ct.ticketID = ?
                           ORDER BY cti.id ASC
                         `;
-                                                const steeringJoinSql = `
+                        const steeringJoinSql = `
                                                     SELECT sst.*, ss.ticketID AS steeringTicketID, ss.comments AS steeringComments
                                                     FROM steeringSuspensionTable sst
                                                     INNER JOIN steeringSuspension ss ON sst.steeringSuspensionID = ss.id
@@ -143,16 +200,16 @@ router.get('/mechanic', (req, res) => {
                                   WHERE b.ticketID = ?
                                   ORDER BY bt.id ASC
                                 `;
-                                                                db.all(brakesJoinSql, [ticketId], (bErr, brakesRows) => {
-                                                                    if (bErr) {
-                                                                        console.error('Error loading brakes joined rows:', bErr);
-                                                                    } else if (Array.isArray(brakesRows) && brakesRows.length) {
-                                                                        ticket.sections = ticket.sections || {};
-                                                                        ticket.sections.brakesTable = brakesRows;
-                                                                    }
+                                db.all(brakesJoinSql, [ticketId], (bErr, brakesRows) => {
+                                    if (bErr) {
+                                        console.error('Error loading brakes joined rows:', bErr);
+                                    } else if (Array.isArray(brakesRows) && brakesRows.length) {
+                                        ticket.sections = ticket.sections || {};
+                                        ticket.sections.brakesTable = brakesRows;
+                                    }
 
-                                                                    // load emissions child rows joined to their parent (emissions) so client can populate the visual table
-                                                                    const emissionsJoinSql = `
+                                    // load emissions child rows joined to their parent (emissions) so client can populate the visual table
+                                    const emissionsJoinSql = `
                                                                         SELECT et.*, e.ticketID AS emissionsTicketID, e.comments AS emissionsComments, e.obd AS emissionsOBD, e.inspections AS emissionsInspections, e.emissionsDue AS emissionsDue, e.nextOilChange AS emissionsNextOilChange, e.inspectedBy AS emissionsInspectedBy, e.reInspectedBy AS emissionsReInspectedBy
                                                                         FROM emissionsTable et
                                                                         INNER JOIN emissions e ON et.emissionsID = e.id
@@ -160,36 +217,36 @@ router.get('/mechanic', (req, res) => {
                                                                         ORDER BY et.id ASC
                                                                     `;
 
-                                                                    db.all(emissionsJoinSql, [ticketId], (emErr, emissionsRows) => {
-                                                                        if (emErr) {
-                                                                            console.error('Error loading emissions joined rows:', emErr);
-                                                                        } else {
-                                                                            ticket.sections = ticket.sections || {};
-                                                                            ticket.sections.emissionsTable = emissionsRows || [];
-                                                                        }
+                                    db.all(emissionsJoinSql, [ticketId], (emErr, emissionsRows) => {
+                                        if (emErr) {
+                                            console.error('Error loading emissions joined rows:', emErr);
+                                        } else {
+                                            ticket.sections = ticket.sections || {};
+                                            ticket.sections.emissionsTable = emissionsRows || [];
+                                        }
 
-                                                                        // also fetch the emissions parent row (contains ticket-level fields and comments)
-                                                                        db.get('SELECT * FROM emissions WHERE ticketID = ?', [ticketId], (epErr, emissionsParent) => {
-                                                                            if (epErr) {
-                                                                                console.error('Error fetching emissions parent:', epErr);
-                                                                            }
-                                                                            ticket.sections = ticket.sections || {};
-                                                                            ticket.sections.emissions = emissionsParent || null;
+                                        // also fetch the emissions parent row (contains ticket-level fields and comments)
+                                        db.get('SELECT * FROM emissions WHERE ticketID = ?', [ticketId], (epErr, emissionsParent) => {
+                                            if (epErr) {
+                                                console.error('Error fetching emissions parent:', epErr);
+                                            }
+                                            ticket.sections = ticket.sections || {};
+                                            ticket.sections.emissions = emissionsParent || null;
 
-                                                                            // fetch warnings linked to this emissions parent (if any)
-                                                                            if (emissionsParent && emissionsParent.id) {
-                                                                                db.all('SELECT * FROM warningsTable WHERE emissionsID = ?', [emissionsParent.id], (wErr, warnRows) => {
-                                                                                    if (wErr) console.error('Error loading emissions warnings:', wErr);
-                                                                                    ticket.sections.emissionsWarnings = warnRows || [];
-                                                                                    return res.render('mechanic', { ticket, editMode: explicitEdit });
-                                                                                });
-                                                                            } else {
-                                                                                ticket.sections.emissionsWarnings = [];
-                                                                                return res.render('mechanic', { ticket, editMode: explicitEdit });
-                                                                            }
-                                                                        });
-                                                                    });
-                                                                });
+                                            // fetch warnings linked to this emissions parent (if any)
+                                            if (emissionsParent && emissionsParent.id) {
+                                                db.all('SELECT * FROM warningsTable WHERE emissionsID = ?', [emissionsParent.id], (wErr, warnRows) => {
+                                                    if (wErr) console.error('Error loading emissions warnings:', wErr);
+                                                    ticket.sections.emissionsWarnings = warnRows || [];
+                                                    return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                                });
+                                            } else {
+                                                ticket.sections.emissionsWarnings = [];
+                                                return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                            }
+                                        });
+                                    });
+                                });
                             });
                         });
                     };
@@ -255,7 +312,7 @@ router.get('/mechanic', (req, res) => {
     });
 });
 
-router.post('/mechanic', (req, res) => {
+router.post('/mechanic', async (req, res) => {
     // collect fields
     const roNum = req.body.roNum;
     const roDate = req.body.roDate;
@@ -275,6 +332,18 @@ router.post('/mechanic', (req, res) => {
 
     const db = req.app.locals.db;
     if (!db) return res.status(500).send('Database not available');
+
+    // try to save signature first (uses req.body.signature dataURL if present)
+    let savedSignature = null;
+    try {
+        if (signature) {
+            savedSignature = await saveSignatureFromDataUrl(db, signature, req.body.signatureFilename || req.body.signatureFileName || 'signature.png');
+            if (savedSignature) console.log('Saved signature before ticket insert:', savedSignature);
+        }
+    } catch (sigErr) {
+        console.error('Failed to save signature before ticket insert:', sigErr);
+        return res.status(500).send('Failed to save signature');
+    }
 
     // Ensure Repair Order is provided (schema requires a repairOrderNumber/roNum)
     if (!roNum || String(roNum).trim() === '') {
@@ -346,7 +415,7 @@ router.post('/mechanic', (req, res) => {
             const ticketParams = [roNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus];
             console.log('Inserting ticket with params:', ticketParams);
 
-            db.run(insertTicketSql, ticketParams, function(err) {
+            db.run(insertTicketSql, ticketParams, function (err) {
                 if (err) {
                     console.error('Failed to insert ticket:', err);
                     // handle UNIQUE constraint on repairOrderNumber by updating the existing ticket instead
@@ -365,7 +434,7 @@ router.post('/mechanic', (req, res) => {
                             // update ticket record with new values
                             const updateSql = `UPDATE tickets SET date=?, techName=?, timeIn=?, timeOut=?, totalTime=?, customerName=?, customerAddress=?, customerPhone=?, customerEmail=?, concern=?, diagnosis=?, recommendedRepairs=?, dateSigned=?, stat=? WHERE id=?`;
                             const updateParams = [roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus, existingId];
-                            db.run(updateSql, updateParams, function(updErr) {
+                            db.run(updateSql, updateParams, function (updErr) {
                                 if (updErr) {
                                     console.error('Failed to update existing ticket:', updErr);
                                     return res.status(500).send('Failed to update existing ticket: ' + (updErr.message || 'unknown'));
@@ -500,8 +569,8 @@ router.post('/mechanic/vehicle-info', (req, res) => {
 });
 
 router.post('/mechanic/courtesy-check', (req, res) => {
-  const db = req.app.locals.db;
-  if (!db) return res.status(500).send('Database not available');
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).send('Database not available');
 
     // Accept JSON body { ticketId, items: [ { item, status, notes }, ... ], comments? }
     // or form field 'payload' containing that JSON string.
@@ -642,12 +711,12 @@ router.post('/mechanic/courtesy-check', (req, res) => {
                                                 return res.status(500).json({ success: false, message: 'Failed to finalize courtesy save' });
                                             }
                                             return res.sendStatus(204);
+                                        });
                                     });
-                                });
-                            }
+                                }
+                            });
                         });
                     });
-                });
             });
         });
     });
@@ -692,7 +761,7 @@ router.post('/mechanic/tires', (req, res) => {
         if (row) {
             // Update existing record
             const updateSql = `UPDATE tires SET size = ?, speedRating = ?, LF = ?, RF = ?, LR = ?, RR = ?, SP = ?, treadDepth32 = ?, rotationDue = ?, balance = ?, alignment = ?, comments = ? WHERE ticketID = ?`;
-            db.run(updateSql, params, function(err) {
+            db.run(updateSql, params, function (err) {
                 if (err) {
                     console.error('Failed to update tires info:', err);
                     return res.status(500).json({ error: 'Failed to update tires info' });
@@ -703,7 +772,7 @@ router.post('/mechanic/tires', (req, res) => {
             // Insert new record
             const insertSql = `INSERT INTO tires (ticketID, size, speedRating, LF, RF, LR, RR, SP, treadDepth32, rotationDue, balance, alignment, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
             const insertParams = [ticketId, ...params.slice(0, -1)];
-            db.run(insertSql, insertParams, function(err) {
+            db.run(insertSql, insertParams, function (err) {
                 if (err) {
                     console.error('Failed to save tires info:', err);
                     return res.status(500).json({ error: 'Failed to save tires info' });
@@ -716,69 +785,69 @@ router.post('/mechanic/tires', (req, res) => {
 
 
 router.post('/mechanic/steering-suspension', (req, res) => {
-  const db = req.app.locals.db;
-  if (!db) return res.status(500).send('Database not available');
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).send('Database not available');
 
-  // normalize body / payload
-  let body = req.body || {};
-  if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch (e) { body = {}; }
-  }
+    // normalize body / payload
+    let body = req.body || {};
+    if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch (e) { body = {}; }
+    }
     // allow JSON payload or form fields
     const ticketId = body.ticketId || body.ticketID || req.query.ticketId || null;
     let items = body.items || null;
     // accept comments from client
     const comments = (typeof body.comments !== 'undefined') ? body.comments : (body.comment || null);
 
-  if (body.payload && !items) {
-    try {
-      const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload;
-      items = p.items || p.rows || null;
-    } catch (e) { /* ignore */ }
-  }
-
-  // fallback parse sequential form fields item_0,left_0,...
-  if (!Array.isArray(items)) {
-    const parsed = [];
-    for (let i = 0;; i++) {
-      const item = body[`item_${i}`];
-      if (typeof item === 'undefined') break;
-      parsed.push({
-        item: item,
-        left: body[`left_${i}`] || '',
-        right: body[`right_${i}`] || '',
-        front: body[`front_${i}`] || '',
-        rear: body[`rear_${i}`] || ''
-      });
+    if (body.payload && !items) {
+        try {
+            const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload;
+            items = p.items || p.rows || null;
+        } catch (e) { /* ignore */ }
     }
-    if (parsed.length) items = parsed;
-  }
 
-  if (!ticketId) return res.status(400).send('ticketId required');
-  items = Array.isArray(items) ? items : [];
+    // fallback parse sequential form fields item_0,left_0,...
+    if (!Array.isArray(items)) {
+        const parsed = [];
+        for (let i = 0; ; i++) {
+            const item = body[`item_${i}`];
+            if (typeof item === 'undefined') break;
+            parsed.push({
+                item: item,
+                left: body[`left_${i}`] || '',
+                right: body[`right_${i}`] || '',
+                front: body[`front_${i}`] || '',
+                rear: body[`rear_${i}`] || ''
+            });
+        }
+        if (parsed.length) items = parsed;
+    }
 
-  db.serialize(() => {
-    // find or create parent steeringSuspension row for this ticket
-    db.get('SELECT id FROM steeringSuspension WHERE ticketID = ?', [ticketId], (err, row) => {
-      if (err) {
-        console.error('Find steering parent error:', err);
-        return res.status(500).send('DB error');
-      }
+    if (!ticketId) return res.status(400).send('ticketId required');
+    items = Array.isArray(items) ? items : [];
 
-      const createChildren = (parentId) => {
-        // delete existing children
-        db.run('DELETE FROM steeringSuspensionTable WHERE steeringSuspensionID = ?', [parentId], (delErr) => {
-          if (delErr) console.warn('Failed to delete old steering children:', delErr);
+    db.serialize(() => {
+        // find or create parent steeringSuspension row for this ticket
+        db.get('SELECT id FROM steeringSuspension WHERE ticketID = ?', [ticketId], (err, row) => {
+            if (err) {
+                console.error('Find steering parent error:', err);
+                return res.status(500).send('DB error');
+            }
 
-          const stmt = db.prepare('INSERT INTO steeringSuspensionTable (steeringSuspensionID, item, left, right, front, rear) VALUES (?, ?, ?, ?, ?, ?)');
-          for (const it of items) {
-            const label = (it.item || it.name || '').toString();
-            const left = (it.left || it.L || it.Left || '').toString();
-            const right = (it.right || it.R || it.Right || '').toString();
-            const front = (it.front || it.Front || '').toString();
-            const rear = (it.rear || it.Rear || '').toString();
-            stmt.run([parentId, label, left, right, front, rear]);
-          }
+            const createChildren = (parentId) => {
+                // delete existing children
+                db.run('DELETE FROM steeringSuspensionTable WHERE steeringSuspensionID = ?', [parentId], (delErr) => {
+                    if (delErr) console.warn('Failed to delete old steering children:', delErr);
+
+                    const stmt = db.prepare('INSERT INTO steeringSuspensionTable (steeringSuspensionID, item, left, right, front, rear) VALUES (?, ?, ?, ?, ?, ?)');
+                    for (const it of items) {
+                        const label = (it.item || it.name || '').toString();
+                        const left = (it.left || it.L || it.Left || '').toString();
+                        const right = (it.right || it.R || it.Right || '').toString();
+                        const front = (it.front || it.Front || '').toString();
+                        const rear = (it.rear || it.Rear || '').toString();
+                        stmt.run([parentId, label, left, right, front, rear]);
+                    }
                     stmt.finalize((finalErr) => {
                         if (finalErr) {
                             console.error('Failed insert steering children:', finalErr);
@@ -812,23 +881,23 @@ router.post('/mechanic/steering-suspension', (req, res) => {
                             return res.sendStatus(204);
                         }
                     });
-        });
-      };
+                });
+            };
 
-      if (row && row.id) {
-        createChildren(row.id);
-      } else {
-        // insert parent
-        db.run('INSERT INTO steeringSuspension (ticketID, item) VALUES (?, ?)', [ticketId, 'Steering & Suspension'], function (insErr) {
-          if (insErr) {
-            console.error('Failed create steering parent:', insErr);
-            return res.status(500).send('DB insert error');
-          }
-          createChildren(this.lastID);
+            if (row && row.id) {
+                createChildren(row.id);
+            } else {
+                // insert parent
+                db.run('INSERT INTO steeringSuspension (ticketID, item) VALUES (?, ?)', [ticketId, 'Steering & Suspension'], function (insErr) {
+                    if (insErr) {
+                        console.error('Failed create steering parent:', insErr);
+                        return res.status(500).send('DB insert error');
+                    }
+                    createChildren(this.lastID);
+                });
+            }
         });
-      }
     });
-  });
 });
 
 router.post('/mechanic/brakes', (req, res) => {
@@ -852,7 +921,7 @@ router.post('/mechanic/brakes', (req, res) => {
     if (!Array.isArray(items)) {
         // fallback: parse sequential form fields
         const parsed = [];
-        for (let i = 0;; i++) {
+        for (let i = 0; ; i++) {
             const item = req.body[`item_${i}`];
             if (typeof item === 'undefined') break;
             parsed.push({
@@ -994,7 +1063,7 @@ router.post('/mechanic/emissions', (req, res) => {
     // items for emissions table (visual items)
     let items = body.items || body.rows || body.table || null;
     if (!items && body.payload) {
-        try { const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload; items = p.items || p.rows || null; } catch (e) {}
+        try { const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload; items = p.items || p.rows || null; } catch (e) { }
     }
     if (typeof items === 'string') {
         try { items = JSON.parse(items); } catch (e) { items = null; }
@@ -1012,13 +1081,13 @@ router.post('/mechanic/emissions', (req, res) => {
     const warningsText = emissionsInfo.warnings || body.warningsText || body.warnings || '';
     // ensure comments always defined and add debug logging to inspect incoming payload
     const comments = emissionsInfo.comments || body.comments || body.emissionsComments || '';
-    try { console.log('POST /mechanic/emissions - raw body keys:', Object.keys(body)); } catch(e) {}
-    try { console.log('POST /mechanic/emissions - body snapshot:', JSON.stringify(body)); } catch(e) {}
+    try { console.log('POST /mechanic/emissions - raw body keys:', Object.keys(body)); } catch (e) { }
+    try { console.log('POST /mechanic/emissions - body snapshot:', JSON.stringify(body)); } catch (e) { }
     console.log('Received emissions info:', { OBD, inspections, emissionsDue, nextOilChange, inspectedBy, reInspectedBy, warningsText, comments });
     // tags/warnings array
     let tags = body.tags || body.warnings || emissionsInfo.tags || emissionsInfo.warnings || null;
     if (typeof tags === 'string') {
-        try { tags = JSON.parse(tags); } catch (e) { tags = tags.split(',').map(s=>s.trim()).filter(Boolean); }
+        try { tags = JSON.parse(tags); } catch (e) { tags = tags.split(',').map(s => s.trim()).filter(Boolean); }
     }
     tags = Array.isArray(tags) ? tags : (tags ? [tags] : []);
 
@@ -1218,7 +1287,7 @@ router.post('/upload-video', videoUpload.single('video'), (req, res) => {
             });
             return;
         }
-        
+
         res.json({ success: true, id: this.lastID, path: relativePath });
     });
 });
@@ -1286,6 +1355,25 @@ router.post('/upload-signature', signatureUpload.single('signature'), (req, res)
         }
         // success
         res.json({ success: true, id: this.lastID, path: relativePath });
+    });
+});
+
+router.post('/ticket-check', (req, res) => {
+    const db = req.app && req.app.locals && req.app.locals.db;
+    if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
+
+    const ticketId = req.body.ticketId;
+    if (!ticketId) return res.status(400).json({ success: false, message: 'Missing ticketId' });
+
+    const sql = `SELECT id, ticketID, filename, originalName, relativePath, uploadDate
+               FROM signatures
+               WHERE ticketID = ?
+               ORDER BY id DESC
+               LIMIT 1`;
+    db.get(sql, [ticketId], (err, row) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        if (!row) return res.status(404).json({ success: false, message: 'Signature not found' });
+        return res.json({ success: true, signature: row });
     });
 });
 

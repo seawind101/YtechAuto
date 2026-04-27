@@ -124,16 +124,30 @@
         <p>Warnings from courtesy check:</p>
         <div class="inspection-summary">
           <div class="inspection-item">
-            <span class="status-badge status-green">OK</span>
-            <span>Items in good condition</span>
-          </div>
-          <div class="inspection-item">
             <span class="status-badge status-yellow">Monitor</span>
             <span>Items to watch</span>
+          </div>
+          <div id="monitorItems">
+            <% if (inspection && inspection.monitorItems && inspection.monitorItems.length) { %>
+              <ul class="inspection-list">
+                <% inspection.monitorItems.forEach(item => { %>
+                  <li><span class="status-badge status-yellow">Monitor</span> <%= item %></li>
+                <% }) %>
+              </ul>
+            <% } %>
           </div>
           <div class="inspection-item">
             <span class="status-badge status-red">Needs Service</span>
             <span>Items requiring attention</span>
+          </div>
+          <div id="badItems">
+            <% if (inspection && inspection.badItems && inspection.badItems.length) { %>
+              <ul class="inspection-list">
+                <% inspection.badItems.forEach(item => { %>
+                  <li><span class="status-badge status-red">Needs Service</span> <%= item %></li>
+                <% }) %>
+              </ul>
+            <% } %>
           </div>
         </div>
       </section>

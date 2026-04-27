@@ -156,13 +156,23 @@
       <section class="section video-section">
         <h2>Inspection Video</h2>
         <p>Watch the mechanic's video walkthrough of the inspection and repairs.</p>
-        <video controls width="640">
-          <source src="Recording-20260212_111802.webm" type="video/webm">
-          Your browser does not support the video tag.
-        </video>
-        <div>
-          <a href="Recording-20260212_111802.webm" download="inspection-video.webm" class="video-download-link">Download Video</a>
-        </div>
+        <% if (typeof video !== 'undefined' && video && video.webPath) { %>
+          <video controls width="640">
+            <source src="<%= video.webPath %>" type="<%= video.mimeType || 'video/webm' %>">
+            Your browser does not support the video tag.
+          </video>
+          <div>
+            <a href="<%= video.webPath %>" download="<%= video.originalName || 'inspection-video' %>" class="video-download-link">Download Video</a>
+          </div>
+        <% } else { %>
+          <video controls width="640">
+            <source src="Recording-20260212_111802.webm" type="video/webm">
+            Your browser does not support the video tag.
+          </video>
+          <div>
+            <a href="Recording-20260212_111802.webm" download="inspection-video.webm" class="video-download-link">Download Video</a>
+          </div>
+        <% } %>
       </section>
       
     <% } else { %>

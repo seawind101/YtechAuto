@@ -40,6 +40,9 @@ app.use(session({
     saveUninitialized: true
 }));
 
+// serve uploaded files (videos/images/signatures)
+app.use('/upload', express.static(path.join(__dirname, 'upload')));
+
 //Routes
 const indexRouter = require('./routes/index');
 const mechanicRouter = require('./routes/mechanic');

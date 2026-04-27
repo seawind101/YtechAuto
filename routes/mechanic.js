@@ -276,23 +276,68 @@ router.post('/mechanic', (req, res) => {
     const db = req.app.locals.db;
     if (!db) return res.status(500).send('Database not available');
 
+    // Ensure Repair Order is provided (schema requires a repairOrderNumber/roNum)
+    if (!roNum || String(roNum).trim() === '') {
+        console.warn('POST /mechanic: missing roNum in request body');
+        return res.status(400).send('Repair Order number (roNum) is required');
+    }
+
     // parse repairs
     let repairs = [];
     try { if (req.body.repairs) repairs = JSON.parse(req.body.repairs); } catch (e) { repairs = []; }
 
     const recommendedRepairsText = JSON.stringify(repairs || []);
 
-    const insertTicketSql = `INSERT INTO tickets (date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const ticketParams = [roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate];
+    // read incoming ticket id (if editing an existing ticket)
+    const incomingTicketId = req.body.ticketId;
 
-    db.run(insertTicketSql, ticketParams, function (err) {
-    // Ensure schema has roNum column, then INSERT
+    // Ensure schema has roNum/repairOrderNumber column, then INSERT or UPDATE with RO included
     db.all("PRAGMA table_info('tickets')", [], (err, cols) => {
         if (err) {
             console.error('Failed to read tickets table info', err);
         }
         const hasRepairOrderNumber = Array.isArray(cols) && cols.some(c => c && c.name === 'repairOrderNumber');
         const hasRo = Array.isArray(cols) && cols.some(c => c && c.name === 'roNum');
+
+        const performUpdate = (colName, targetId) => {
+            const updateCols = `${colName} = ?, date = ?, techName = ?, timeIn = ?, timeOut = ?, totalTime = ?, customerName = ?, customerAddress = ?, customerPhone = ?, customerEmail = ?, concern = ?, diagnosis = ?, recommendedRepairs = ?, dateSigned = ?, stat = ?`;
+            const updateSql = `UPDATE tickets SET ${updateCols} WHERE id = ?`;
+            const updateParams = [roNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus, targetId];
+            console.log('Updating ticket id', targetId, 'with params:', updateParams);
+            db.run(updateSql, updateParams, function (updErr) {
+                if (updErr) {
+                    console.error('Failed to update ticket:', updErr);
+                    return res.status(500).send('Failed to update ticket: ' + (updErr && updErr.message ? updErr.message : 'unknown'));
+                }
+
+                // Replace recRepairs for this ticket
+                db.run('DELETE FROM recRepairs WHERE ticketId = ?', [targetId], (delErr) => {
+                    if (delErr) console.error('Failed to delete old recRepairs for ticket', targetId, delErr);
+
+                    if (!repairs || repairs.length === 0) return res.redirect('/mechanic?id=' + targetId);
+
+                    const insertRecSql = `INSERT INTO recRepairs (ticketId, repairDescription, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+                    const stmt = db.prepare(insertRecSql);
+                    repairs.forEach(r => {
+                        const desc = r.repairDescription || '';
+                        const qty = Number.isFinite(Number(r.qty)) ? parseInt(r.qty) : (r.qty ? parseInt(r.qty) : 0);
+                        const partNumber = r.partNumber || '';
+                        const partPrice = Number.isFinite(Number(r.partPrice)) ? parseFloat(r.partPrice) : (r.partPrice ? parseFloat(r.partPrice) : 0);
+                        const partsTotal = Number.isFinite(Number(r.partsTotal)) ? parseFloat(r.partsTotal) : (r.partsTotal ? parseFloat(r.partsTotal) : (qty * partPrice));
+                        const laborHours = Number.isFinite(Number(r.laborHours)) ? parseFloat(r.laborHours) : (r.laborHours ? parseFloat(r.laborHours) : 0);
+                        const laborTotal = Number.isFinite(Number(r.laborTotal)) ? parseFloat(r.laborTotal) : (r.laborTotal ? parseFloat(r.laborTotal) : (laborHours * 100));
+
+                        stmt.run([targetId, desc, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal], (rErr) => {
+                            if (rErr) console.error('Failed to insert recRepair row for updated ticket:', rErr);
+                        });
+                    });
+                    stmt.finalize((finalErr) => {
+                        if (finalErr) console.error('Failed finalizing recRepairs stmt for updated ticket:', finalErr);
+                        return res.redirect('/mechanic?id=' + targetId);
+                    });
+                });
+            });
+        };
 
         const chooseAndInsert = (colName) => {
             const insertCols = `${colName}, date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned, stat`;
@@ -304,10 +349,66 @@ router.post('/mechanic', (req, res) => {
             db.run(insertTicketSql, ticketParams, function(err) {
                 if (err) {
                     console.error('Failed to insert ticket:', err);
+                    // handle UNIQUE constraint on repairOrderNumber by updating the existing ticket instead
+                    if (err.code === 'SQLITE_CONSTRAINT' && String(err.message).toLowerCase().includes('repairordernumber')) {
+                        console.log('repairOrderNumber already exists — attempting to update existing ticket and replace repairs');
+                        return db.get('SELECT id FROM tickets WHERE repairOrderNumber = ?', [roNum], (getErr, existingRow) => {
+                            if (getErr) {
+                                console.error('Failed to lookup existing ticket by repairOrderNumber:', getErr);
+                                return res.status(500).send('DB error looking up existing ticket');
+                            }
+                            if (!existingRow || !existingRow.id) {
+                                console.error('Unique constraint reported but existing ticket not found for RO:', roNum);
+                                return res.status(500).send('Unique constraint on repair order and existing ticket not found');
+                            }
+                            const existingId = existingRow.id;
+                            // update ticket record with new values
+                            const updateSql = `UPDATE tickets SET date=?, techName=?, timeIn=?, timeOut=?, totalTime=?, customerName=?, customerAddress=?, customerPhone=?, customerEmail=?, concern=?, diagnosis=?, recommendedRepairs=?, dateSigned=?, stat=? WHERE id=?`;
+                            const updateParams = [roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus, existingId];
+                            db.run(updateSql, updateParams, function(updErr) {
+                                if (updErr) {
+                                    console.error('Failed to update existing ticket:', updErr);
+                                    return res.status(500).send('Failed to update existing ticket: ' + (updErr.message || 'unknown'));
+                                }
+
+                                // Replace existing recRepairs for this ticket with the provided repairs
+                                db.run('DELETE FROM recRepairs WHERE ticketId = ?', [existingId], (delErr) => {
+                                    if (delErr) console.error('Failed to delete old recRepairs for ticket', existingId, delErr);
+
+                                    if (!repairs || repairs.length === 0) return res.redirect('/mechanic?id=' + existingId);
+
+                                    const insertRecSql = `INSERT INTO recRepairs (ticketId, repairDescription, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+                                    const stmt = db.prepare(insertRecSql);
+                                    repairs.forEach(r => {
+                                        const desc = r.repairDescription || '';
+                                        const qty = Number.isFinite(Number(r.qty)) ? parseInt(r.qty) : (r.qty ? parseInt(r.qty) : 0);
+                                        const partNumber = r.partNumber || '';
+                                        const partPrice = Number.isFinite(Number(r.partPrice)) ? parseFloat(r.partPrice) : (r.partPrice ? parseFloat(r.partPrice) : 0);
+                                        const partsTotal = Number.isFinite(Number(r.partsTotal)) ? parseFloat(r.partsTotal) : (r.partsTotal ? parseFloat(r.partsTotal) : (qty * partPrice));
+                                        const laborHours = Number.isFinite(Number(r.laborHours)) ? parseFloat(r.laborHours) : (r.laborHours ? parseFloat(r.laborHours) : 0);
+                                        const laborTotal = Number.isFinite(Number(r.laborTotal)) ? parseFloat(r.laborTotal) : (r.laborTotal ? parseFloat(r.laborTotal) : (laborHours * 100));
+
+                                        stmt.run([existingId, desc, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal], (rErr) => {
+                                            if (rErr) console.error('Failed to insert recRepair row for existing ticket:', rErr);
+                                        });
+                                    });
+                                    stmt.finalize((finalErr) => {
+                                        if (finalErr) console.error('Failed finalizing recRepairs stmt for existing ticket:', finalErr);
+                                        return res.redirect('/mechanic?id=' + existingId);
+                                    });
+                                });
+                            });
+                        });
+                    }
+                    return res.status(500).send('Failed to insert ticket: ' + (err && err.message ? err.message : 'unknown'));
                 }
 
                 const ticketId = this.lastID;
                 console.log('Inserted ticket id', ticketId);
+                if (!ticketId) {
+                    console.warn('No lastID returned after ticket insert');
+                    return res.status(500).send('Failed to create ticket record (no id returned)');
+                }
 
                 if (!repairs || repairs.length === 0) return res.redirect('/mechanic?id=' + ticketId);
 
@@ -339,19 +440,23 @@ router.post('/mechanic', (req, res) => {
             });
         };
 
-        if (hasRepairOrderNumber) return chooseAndInsert('repairOrderNumber');
-        if (hasRo) return chooseAndInsert('roNum');
+        if (hasRepairOrderNumber) {
+            if (incomingTicketId) return performUpdate('repairOrderNumber', incomingTicketId);
+            return chooseAndInsert('repairOrderNumber');
+        }
+        if (hasRo) {
+            if (incomingTicketId) return performUpdate('roNum', incomingTicketId);
+            return chooseAndInsert('roNum');
+        }
 
         // prefer adding repairOrderNumber to match existing schema expectations
         db.run("ALTER TABLE tickets ADD COLUMN repairOrderNumber TEXT", [], (err2) => {
             if (err2) console.error('Failed to add repairOrderNumber column to tickets table', err2);
+            if (incomingTicketId) return performUpdate('repairOrderNumber', incomingTicketId);
             chooseAndInsert('repairOrderNumber');
         });
     });
 });
-});
-
-
 
 router.post('/mechanic/vehicle-info', (req, res) => {
     const db = req.app.locals.db;

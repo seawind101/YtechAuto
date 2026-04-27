@@ -19,19 +19,8 @@
     <h2>Your Repair Tickets</h2>
     <p>Welcome <strong><%= typeof user !== 'undefined' ? user.email : 'Customer' %></strong>! Here are all your completed repair tickets:</p>
 
-    <% 
-        const allTickets = (typeof tickets !== 'undefined' && Array.isArray(tickets)) ? tickets : [];
-        const filteredTickets = allTickets.filter(function(t){
-            try {
-                const ticketEmail = (t.customerEmail || '').toString().toLowerCase();
-                const userEmail = (typeof user !== 'undefined' && user && user.email) ? user.email.toString().toLowerCase() : '';
-                const isComplete = (t.stat || '').toString().toLowerCase() === 'complete';
-                return ticketEmail && userEmail && ticketEmail === userEmail && isComplete;
-            } catch (e) { return false; }
-        });
-    %>
-    <% if (filteredTickets.length > 0) { %>
-        <% filteredTickets.forEach((ticket, index) => { %>
+    <% if (typeof tickets !== 'undefined' && tickets.length > 0) { %>
+        <% tickets.forEach((ticket, index) => { %>
             <section class="section" style="border: 1px solid #ccc; padding: 1rem; margin-top: 1rem; border-radius: 8px;">
                 <h3>Ticket #<%= ticket.id %> 
                     <span class="status-badge status-<%= ticket.stat === 'Complete' ? 'green' : ticket.stat === 'open' ? 'yellow' : 'red' %>">
@@ -73,17 +62,17 @@
                 </div>
             </section>
         <% }) %>
-        <% } else { %>
+    <% } else { %>
         <section class="section" style="border: 1px solid #ccc; padding: 1rem; margin-top: 1rem; border-radius: 8px; text-align: center;">
             <h3>No Tickets Found</h3>
-                        <p>You don't have any completed repair tickets associated with <strong><%= typeof user !== 'undefined' ? user.email : 'your account' %></strong>.</p>
-                        <p>When you bring your vehicle in for service, or when a ticket is marked complete, it will appear here.</p>
+            <p>You don't have any repair tickets yet.</p>
+            <p>When you bring your vehicle in for service, your tickets will appear here.</p>
         </section>
     <% } %>
   </main>
 
   <footer class="section" style="text-align:center;">
-        <small>Customer view for Auto Repair Ticket System - Showing <%= filteredTickets.length %> completed ticket(s) for <%= typeof user !== 'undefined' ? user.email : 'your account' %></small>
+    <small>Customer view for Auto Repair Ticket System - Showing <%= typeof tickets !== 'undefined' ? tickets.length : 0 %> ticket(s)</small>
   </footer>
 </body>
 </html>

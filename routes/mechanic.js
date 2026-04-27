@@ -371,17 +371,27 @@ router.post('/mechanic', async (req, res) => {
                         return res.redirect('/mechanic?id=' + ticketId);
                     });
                 });
+                stmt.finalize((err) => {
+                    if (err) console.error('Failed finalizing recRepairs stmt:', err);
+                    if (ticketId) {
+                        return res.redirect('/mechanic?id=' + ticketId);
+                    }
+                    else {
+                        console.warn('No ticket ID after insert');
+                        return res.send('Ticket created, but failed to retrieve ID for repairs insertion. Please check your form ensure all fields are filled. RO Number must be unique as well');
+                    }
+                });
             };
-
-            if (hasRepairOrderNumber) return chooseAndInsert('repairOrderNumber');
-            if (hasRo) return chooseAndInsert('roNum');
-
-            // prefer adding repairOrderNumber to match existing schema expectations
-            db.run("ALTER TABLE tickets ADD COLUMN repairOrderNumber TEXT", [], (err2) => {
-                if (err2) console.error('Failed to add repairOrderNumber column to tickets table', err2);
-                chooseAndInsert('repairOrderNumber');
-            });
         });
+    });
+
+    if (hasRepairOrderNumber) return chooseAndInsert('repairOrderNumber');
+    if (hasRo) return chooseAndInsert('roNum');
+
+    // prefer adding repairOrderNumber to match existing schema expectations
+    db.run("ALTER TABLE tickets ADD COLUMN repairOrderNumber TEXT", [], (err2) => {
+        if (err2) console.error('Failed to add repairOrderNumber column to tickets table', err2);
+        chooseAndInsert('repairOrderNumber');
     });
 });
 
@@ -573,13 +583,11 @@ router.post('/mechanic/courtesy-check', (req, res) => {
                                 }
                             });
                         });
-                    }
-                );
+                    });
             });
         });
     });
 });
-
 router.post('/mechanic/tires', (req, res) => {
     const db = req.app.locals.db;
     if (!db) return res.status(500).json({ error: 'Database not available' });
@@ -931,7 +939,7 @@ router.post('/upload-video', videoUpload.single('video'), (req, res) => {
             });
             return;
         }
-        // success
+
         res.json({ success: true, id: this.lastID, path: relativePath });
     });
 });

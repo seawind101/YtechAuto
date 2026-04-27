@@ -6,13 +6,20 @@
   <title>Mechanic - Auto Repair Ticket System</title>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="/js/mockup.js"></script>
+  <% var safeEditMode = (typeof editMode !== 'undefined' && !!editMode); %>
   <% if (typeof ticket !== 'undefined' && ticket) { %>
   <script>
     window.__SERVER_TICKET__ = <%- JSON.stringify(ticket) %>;
-    window.__MECHANIC_EDIT_MODE__ = <%= !!editMode %>;
+    window.__MECHANIC_EDIT_MODE__ = <%= safeEditMode %>;
   </script>
   <% } else { %>
   <script>window.__SERVER_TICKET__ = null; window.__MECHANIC_EDIT_MODE__ = false;</script>
+  <% } %>
+  <% if (!safeEditMode) { %>
+  <style>
+    /* hide editable controls when not in edit mode */
+    .editable-only { display: none !important; }
+  </style>
   <% } %>
   <script src="/js/form.js"></script>
 </head>
@@ -140,7 +147,7 @@
           </table>
         </div>
         <input type="hidden" id="repairs-hidden" name="repairs" value="">
-        <button type="button" class="btn btn-secondary add-repair-line">Add Repair Line</button>
+        <button type="button" class="btn btn-secondary add-repair-line editable-only">Add Repair Line</button>
 
         <h3>Totals</h3>
         <div class="form-grid">
@@ -187,13 +194,13 @@
             <canvas id="signatureCanvas" width="400" height="200" style="border: 1px solid var(--border); cursor: crosshair; background: white;"></canvas>
             <input type="hidden" name="signature" id="signatureData">
             <div style="margin-top: 5px;">
-            <button type="button" id="clearSignature" style="background-color: brown; color: white;" class="btn btn-secondary">Clear Signature</button>
+            <button type="button" id="clearSignature" style="background-color: brown; color: white;" class="btn btn-secondary editable-only">Clear Signature</button>
           </div>
           </div>
         </div>
 
 
-        <button id="firstSub" type="submit" class="btn btn-primary save-ticket">Save Ticket</button>
+        <button id="firstSub" type="submit" class="btn btn-primary save-ticket editable-only">Save Ticket</button>
         <input type="hidden" id="ticketStatus" name="ticketStatus" value="">
       </form>
     </section>
@@ -230,7 +237,7 @@
                 <div class="form-group"><label for="plate">Plate</label><input id="plate" name="plate" type="text"></div>
                 <div class="form-group full-width"><label for="comments">Comments</label><input id="comments" name="comments" type="text"></div>
               </div>
-              <button type="submit" class="btn btn-secondary">Save</button>
+              <button type="submit" class="btn btn-secondary editable-only">Save</button>
             </form>
           </div>
         </div>
@@ -367,7 +374,7 @@
     </div>
     </div>
 
-    <button type="button" class="section-save btn btn-secondary" data-section="courtesy-check" style="margin-top:8px">Save</button>
+    <button type="button" class="section-save btn btn-secondary editable-only" data-section="courtesy-check" style="margin-top:8px">Save</button>
   </div>
 </div>
 
@@ -391,7 +398,7 @@
           <div class="form-group"><label>Alignment Check?</label><select name="alignmentCheck"><option>Yes</option><option>No</option><option>N/A</option></select></div>
           <div class="form-group full-width"><label>Comments</label><input type="text" name="tireComments" placeholder="Tire comments"></div>
               </div>
-              <button type="submit" class="section-save btn btn-secondary" style="margin-top:8px">Save</button>
+              <button type="submit" class="section-save btn btn-secondary editable-only" style="margin-top:8px">Save</button>
             </form>
           </div>
         </div>
@@ -545,7 +552,7 @@
       <input type="text" placeholder="Steering & Suspension comments">
     </div>
 
-    <button type="button" class="section-save btn btn-secondary" data-section="steering" style="margin-top:8px">Save</button>
+    <button type="button" class="section-save btn btn-secondary editable-only" data-section="steering" style="margin-top:8px">Save</button>
   </div>
 </div>
 
@@ -581,7 +588,7 @@
 
             <div class="form-group full-width"><label>Comments</label><input type="text" placeholder="Brake Comments"></div>
 
-            <button type="button" class="section-save btn btn-secondary" data-section="brakes" style="margin-top:8px">Save</button>
+            <button type="button" class="section-save btn btn-secondary editable-only" data-section="brakes" style="margin-top:8px">Save</button>
 
           </div>
         </div>
@@ -625,7 +632,7 @@
               
             </div>
             <div class="form-group full-width"><label>Comments</label><input type="text" placeholder="Emissions / Electrical Lighting comments"></div>
-            <button type="button" class="section-save btn btn-secondary" data-section="emissions" style="margin-top:8px">Save</button>
+            <button type="button" class="section-save btn btn-secondary editable-only" data-section="emissions" style="margin-top:8px">Save</button>
           </div>
         </div>
 
@@ -637,10 +644,10 @@
       <h2>Upload Video</h2>
       <div class="video-upload-zone" id="video-upload-zone">
         <p>Drop video here or click to upload</p>
-        <input type="file" id="video-file" accept="video/*" style="display:none">
-        <button type="button" class="btn btn-secondary" id="upload-trigger">Choose File</button>
+        <input type="file" id="video-file" accept="video/*" style="display:none" class="editable-only">
+        <button type="button" class="btn btn-secondary editable-only" id="upload-trigger">Choose File</button>
       </div>
-      <button type="button" class="btn btn-primary" id="upload-btn" style="margin-top:1rem">Upload</button>
+      <button type="button" class="btn btn-primary editable-only" id="upload-btn" style="margin-top:1rem">Upload</button>
     </section>
 
     <!-- Image Upload Section (matches Video UI) -->
@@ -648,18 +655,63 @@
       <h2>Upload Image</h2>
       <div class="image-upload-zone" id="image-upload-zone">
         <p>Drop image here or click to upload</p>
-        <input type="file" id="image-file" accept="image/*" style="display:none">
-        <button type="button" class="btn btn-secondary" id="image-upload-trigger">Choose File</button>
+        <input type="file" id="image-file" accept="image/*" style="display:none" class="editable-only">
+        <button type="button" class="btn btn-secondary editable-only" id="image-upload-trigger">Choose File</button>
       </div>
       <div id="image-preview" style="margin-top:8px;"></div>
-      <button type="button" class="btn btn-primary" id="image-upload-btn" style="margin-top:1rem" disabled>Upload</button>
+      <button type="button" class="btn btn-primary editable-only" id="image-upload-btn" style="margin-top:1rem" disabled>Upload</button>
     </section>
     <div style="padding:1rem;text-align:center;margin-top:1rem">
-      <button id="completeTicketBottom" type="button" class="btn btn-success">Complete Ticket</button>
+      <button id="completeTicketBottom" type="button" class="btn btn-success editable-only">Complete Ticket</button>
     </div>
   </main>
 
     <!-- server-provided ticket payload (JSON). Read by public/js/form.js to populate the form when editing -->
     <input type="hidden" id="server-ticket" value='<%- JSON.stringify(typeof locals !== "undefined" && locals.ticket ? locals.ticket : null) %>'>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        try {
+          var ticket = window.__SERVER_TICKET__ || (document.getElementById('server-ticket') && JSON.parse(document.getElementById('server-ticket').value));
+          var editMode = !!window.__MECHANIC_EDIT_MODE__;
+          var isComplete = ticket && String(ticket.stat).toLowerCase() === 'complete';
+
+          // Only enforce strict read-only when ticket is complete
+          if (isComplete) {
+            // Disable or make readOnly all form controls, but allow accordion headers to remain interactive
+            var selectors = 'input, textarea, select, button';
+            document.querySelectorAll(selectors).forEach(function (el) {
+              // keep accordion headers (they are divs) and any anchors untouched
+              if (el.tagName === 'A') return;
+              // don't disable elements explicitly marked editable-only false; skip controls used for UI navigation
+              if (el.classList && el.classList.contains('accordion-header')) return;
+              if (el.classList && el.classList.contains('editable-only')) { el.style.display = 'none'; return; }
+              // allow section toggles (they are not buttons) - ensure we don't break them
+              try {
+                el.disabled = true;
+              } catch (e) {}
+              // for text inputs, also set readonly for better UX
+              if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                try { el.readOnly = true; } catch (e) {}
+              }
+            });
+
+            // also visually indicate read-only fields
+            document.querySelectorAll('input,textarea,select').forEach(function(f){
+              if (f.disabled || f.readOnly) f.classList.add('read-only-field');
+            });
+
+            // Ensure accordion headers remain interactive so sections can be opened
+            document.querySelectorAll('.accordion-header').forEach(function(h){
+              try {
+                h.style.pointerEvents = 'auto';
+                h.style.cursor = 'pointer';
+              } catch (e) {}
+            });
+          }
+        } catch (ex) {
+          console.error('Error applying read-only view for completed ticket', ex);
+        }
+      });
+    </script>
 </body>
 </html>

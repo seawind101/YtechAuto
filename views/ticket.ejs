@@ -527,9 +527,25 @@
     </header>
 
     <main class="main-content">
-        <div class="section">
-            
+      <div class="section">
+        <h2>Completed Tickets</h2>
+        <div class="tickets-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">
+          <% if (typeof tickets !== 'undefined' && Array.isArray(tickets) && tickets.length > 0) { %>
+            <% tickets.forEach(function(t) { %>
+              <a class="ticket-mini" href="/mechanic?id=<%= t.id %>&edit=false" style="display:block;padding:12px;background:#fff;border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <div><strong><%= (t.repairOrderNumber || t.roNum) ? (t.repairOrderNumber || t.roNum) : ('#' + t.id) %></strong></div>
+                  <div class="status-badge status-green">Complete</div>
+                </div>
+                <div style="font-size:0.95rem;color:var(--text-muted);margin-bottom:6px;"><%= t.roDate || '' %></div>
+                <div style="font-weight:500;color:var(--text);"><%= t.customerName || '—' %></div>
+              </a>
+            <% }); %>
+          <% } else { %>
+            <p>No completed tickets found.</p>
+          <% } %>
         </div>
+      </div>
     </main>
 </body>
 </html>

@@ -363,7 +363,7 @@ router.post('/mechanic', async (req, res) => {
             const insertCols = `${colName}, date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned, stat`;
             const insertPlaceholders = Array(insertCols.split(',').length).fill('?').join(', ');
             const insertTicketSql = `INSERT INTO tickets (${insertCols}) VALUES (${insertPlaceholders})`;
-            const ticketParams = [roNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate];
+            const ticketParams = [roNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus];
             console.log('Inserting ticket with params:', ticketParams);
 
             db.run(insertTicketSql, ticketParams, function (err) {
@@ -422,8 +422,9 @@ router.post('/mechanic', async (req, res) => {
                     }
                     return res.status(500).send('Failed to insert ticket: ' + (err && err.message ? err.message : 'unknown'));
                 }
-                // push ticketStatus into params before inserting
                 ticketParams.push(ticketStatus);
+                console.log('Inserting ticket with params:', ticketParams);
+
                 db.run(insertTicketSql, ticketParams, function (err) {
                     if (err) {
                         console.error('Failed to insert ticket:', err);
@@ -455,9 +456,19 @@ router.post('/mechanic', async (req, res) => {
                         return res.redirect('/mechanic?id=' + ticketId);
                     });
                 });
+                stmt.finalize((err) => {
+                    if (err) console.error('Failed finalizing recRepairs stmt:', err);
+                    if (ticketId) {
+                        return res.redirect('/mechanic?id=' + ticketId);
+                    }
+                    else {
+                        console.warn('No ticket ID after insert');
+                        return res.send('Ticket created, but failed to retrieve ID for repairs insertion. Please check your form ensure all fields are filled. RO Number must be unique as well');
+                    }
+                });
             });
         });
-    });
+});
 
 if (hasRepairOrderNumber) {
     if (incomingTicketId) return performUpdate('repairOrderNumber', incomingTicketId);

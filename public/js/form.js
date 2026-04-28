@@ -533,26 +533,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('repForm');
     if (!form) return;
 
-    function populateTimePickers() {
-      const parts = ['timeIn', 'timeOut'];
-      parts.forEach(prefix => {
-        const hour = document.getElementById(prefix + 'Hour');
-        const minute = document.getElementById(prefix + 'Minute');
-        const ampm = document.getElementById(prefix + 'AmPm');
-        if (!hour || !minute || !ampm) return;
-
-        hour.innerHTML = '';
-        hour.add(new Option('Hour', ''));
-        for (let h = 1; h <= 12; h++) hour.add(new Option(String(h), String(h)));
-
-        minute.innerHTML = '';
-        minute.add(new Option('Min', ''));
-        for (let m = 0; m < 60; m++) minute.add(new Option(String(m).padStart(2, '0'), String(m).padStart(2, '0')));
-
-        ampm.innerHTML = '';
-        ampm.add(new Option('AM/PM', ''));
-        ['AM', 'PM'].forEach(x => ampm.add(new Option(x, x)));
-      });
+    function timeToMinutes(timeStr) {
+      let [time, period] = (timeStr || '').split(' ');
+      if (!time || !period) return null;
+      let [hours, minutes] = time.split(':').map(Number);
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      return hours * 60 + minutes;
     }
 
     function computeTotalTime() {
@@ -578,16 +565,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (hiddenIn) hiddenIn.value = inStr;
       if (hiddenOut) hiddenOut.value = outStr;
 
-      function timeToMinutes(timeStr) {
-        let [time, period] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-        return hours * 60 + minutes;
-      }
-
       let tIn = timeToMinutes(inStr);
       let tOut = timeToMinutes(outStr);
+      if (tIn === null || tOut === null) {
+        if (totTimeField) totTimeField.value = '';
+        return;
+      }
       if (tOut <= tIn) tOut += 24 * 60; // cross-midnight
       const diff = tOut - tIn; // minutes
       const hh = Math.floor(diff / 60);
@@ -596,16 +579,66 @@ document.addEventListener('DOMContentLoaded', function () {
       if (totTimeField) totTimeField.value = ` (${hh}:${mmPad})`;
     }
 
-    populateTimePickers();
-    ['timeIn', 'timeOut'].forEach(prefix => {
-      ['Hour', 'Minute', 'AmPm'].forEach(suffix => {
-        const el = document.getElementById(prefix + suffix);
-        if (el) el.addEventListener('change', computeTotalTime);
-      });
-    });
+    function populateSelectsIfPresent() {
+      const parts = ['timeIn', 'timeOut'];
+      let allPresent = true;
+      parts.forEach(prefix => {
+        const hour = document.getElementById(prefix + 'Hour');
+        const minute = document.getElementById(prefix + 'Minute');
+        const ampm = document.getElementById(prefix + 'AmPm');
+        if (!hour || !minute || !ampm) { allPresent = false; return; }
 
-    // initialize once
-    computeTotalTime();
+        if (!hour.dataset.populated) {
+          hour.innerHTML = '';
+          hour.appendChild(new Option('Hour', ''));
+          for (let h = 1; h <= 12; h++) hour.appendChild(new Option(String(h), String(h)));
+          hour.dataset.populated = '1';
+        }
+        if (!minute.dataset.populated) {
+          minute.innerHTML = '';
+          minute.appendChild(new Option('Min', ''));
+          for (let m = 0; m < 60; m++) minute.appendChild(new Option(String(m).padStart(2, '0'), String(m).padStart(2, '0')));
+          minute.dataset.populated = '1';
+        }
+        if (!ampm.dataset.populated) {
+          ampm.innerHTML = '';
+          ampm.appendChild(new Option('AM/PM', ''));
+          ['AM', 'PM'].forEach(x => ampm.appendChild(new Option(x, x)));
+          ampm.dataset.populated = '1';
+        }
+      });
+      return allPresent;
+    }
+
+    function attachChangeListenersOnce() {
+      ['timeIn', 'timeOut'].forEach(prefix => {
+        ['Hour', 'Minute', 'AmPm'].forEach(suffix => {
+          const el = document.getElementById(prefix + suffix);
+          if (!el) return;
+          if (el.dataset.listenerAttached) return;
+          el.addEventListener('change', computeTotalTime);
+          el.dataset.listenerAttached = '1';
+        });
+      });
+    }
+
+    // Retry init briefly in case DOM is modified by other scripts
+    let tries = 0;
+    const maxTries = 12;
+    const tryInit = () => {
+      tries += 1;
+      populateSelectsIfPresent();
+      attachChangeListenersOnce();
+      computeTotalTime();
+      // if some selects weren't present yet, retry a few times (150ms interval)
+      if (tries < maxTries) {
+        const needed = !document.getElementById('timeInHour') || !document.getElementById('timeOutHour');
+        if (needed) setTimeout(tryInit, 150);
+      }
+    };
+
+    // kick off immediately (DOMContentLoaded wrapper above ensures DOM ready)
+    tryInit();
   })();
 
   // --- Signature canvas setup ---
@@ -2055,8 +2088,94 @@ document.addEventListener('DOMContentLoaded', function () {
   else bind();
 })();
 
-// --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
-(function wireVehicleInfoForm() {
+// --- Emissions: save emissions table, middle info, and warnings to /mechanic/emissions ---
+(function wireEmissionsSave() {
+  const bind = function() {
+    try {
+      const saveBtn = document.querySelector('.section-save[data-section="emissions"]');
+      const emissionsSection = document.getElementById('emissions');
+      if (!saveBtn || !emissionsSection) return;
+      if (saveBtn.dataset.boundEmissionsSave === '1') return;
+      saveBtn.dataset.boundEmissionsSave = '1';
+
+      saveBtn.addEventListener('click', async function(e) {
+        e.preventDefault(); e.stopPropagation();
+        const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
+        if (!ticketId) { console.error('Cannot save emissions: missing ticket id. Save Repair Order first.'); return; }
+
+        // collect table rows
+        const table = emissionsSection.querySelector('table');
+        const items = [];
+        if (table) {
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+          rows.forEach(row => {
+            try {
+              const item = (row.cells && row.cells[0] ? row.cells[0].textContent : '').trim();
+              if (!item) return;
+              const status = row.querySelector('select') ? (row.querySelector('select').value || '').trim() : '';
+              const notes = row.querySelector('input[type="text"], textarea') ? (row.querySelector('input[type="text"], textarea').value || '').trim() : '';
+              items.push({ item, status, notes });
+            } catch (e) { /* ignore row */ }
+          });
+        }
+
+        // collect middle emissions info
+        const emissionsInfo = {};
+        try {
+          const selects = emissionsSection.querySelectorAll('.form-grid .form-group');
+          // find inputs by label text
+          const groups = Array.from(emissionsSection.querySelectorAll('.form-grid .form-group'));
+          groups.forEach(g => {
+            const label = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
+            const input = g.querySelector('input,select,textarea');
+            if (!input) return;
+            const val = input.value || '';
+            if (label.includes('obd')) emissionsInfo.OBD = val;
+            else if (label.includes('state') || label.includes('inspection')) emissionsInfo.inspections = val;
+            else if (label.includes('emission') && label.includes('due')) emissionsInfo.emissionsDue = val;
+            else if (label.includes('next oil') || label.includes('next oil change')) emissionsInfo.nextOilChange = val;
+            else if (label.includes('inspected by') && !label.includes('re-')) emissionsInfo.inspectedBy = val;
+            else if (label.includes('re-inspected') || label.includes('re inspected')) emissionsInfo.reInspectedBy = val;
+          });
+        } catch (e) { /* ignore */ }
+
+        // tags (warnings)
+        const tagsHidden = document.getElementById('tags-hidden');
+        let tags = [];
+        if (tagsHidden && tagsHidden.value) tags = tagsHidden.value.split(',').map(s=>s.trim()).filter(Boolean);
+
+        // parent comments - find the full-width form-group whose label contains 'comment'
+        let parentCommentsInput = null;
+        try {
+          const fullGroups = Array.from(emissionsSection.querySelectorAll('.form-group.full-width'));
+          for (const g of fullGroups) {
+            const lbl = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
+            if (lbl.includes('comment')) { parentCommentsInput = g.querySelector('input[type="text"], textarea'); break; }
+          }
+        } catch (e) {}
+        if (!parentCommentsInput) parentCommentsInput = emissionsSection.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
+        const parentComments = parentCommentsInput ? (parentCommentsInput.value || '').trim() : '';
+
+        // assemble payload
+        console.log('Emissions save - parentComments (client):', parentComments);
+        const payload = { ticketId, items, emissions: emissionsInfo, tags, comments: parentComments };
+
+        try {
+          const res = await fetch('/mechanic/emissions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          });
+          if (res.status === 204) { console.log('Emissions saved (204)'); return; }
+          if (res.ok) { let p = null; try { p = await res.json(); } catch(e){ } if (p && p.success) { console.log('Emissions saved'); return; } console.warn('Emissions save unexpected ok response', res.status, p); return; }
+          let err = null; try { err = await res.json(); } catch (e) { err = null; } console.error('Emissions save failed', res.status, err);
+        } catch (err) { console.error('Emissions save failed', err); }
+      });
+    } catch (err) { console.warn('wireEmissionsSave error', err); }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+})();
+
+ // --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
+ (function wireVehicleInfoForm() {
   try {
     const vForm = document.getElementById('vehicle-info-form');
     if (!vForm) return;
@@ -2208,7 +2327,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!el) {
             el = document.createElement('input');
             el.type = 'hidden';
-            el.name = name;
+            el.name = 'signature';
             if (id) el.id = id;
             form && form.appendChild(el);
           }

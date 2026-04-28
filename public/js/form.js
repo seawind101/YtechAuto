@@ -566,26 +566,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('repForm');
     if (!form) return;
 
-    function populateTimePickers() {
-      const parts = ['timeIn', 'timeOut'];
-      parts.forEach(prefix => {
-        const hour = document.getElementById(prefix + 'Hour');
-        const minute = document.getElementById(prefix + 'Minute');
-        const ampm = document.getElementById(prefix + 'AmPm');
-        if (!hour || !minute || !ampm) return;
-
-        hour.innerHTML = '';
-        hour.add(new Option('Hour', ''));
-        for (let h = 1; h <= 12; h++) hour.add(new Option(String(h), String(h)));
-
-        minute.innerHTML = '';
-        minute.add(new Option('Min', ''));
-        for (let m = 0; m < 60; m++) minute.add(new Option(String(m).padStart(2, '0'), String(m).padStart(2, '0')));
-
-        ampm.innerHTML = '';
-        ampm.add(new Option('AM/PM', ''));
-        ['AM', 'PM'].forEach(x => ampm.add(new Option(x, x)));
-      });
+    function timeToMinutes(timeStr) {
+      let [time, period] = (timeStr || '').split(' ');
+      if (!time || !period) return null;
+      let [hours, minutes] = time.split(':').map(Number);
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      return hours * 60 + minutes;
     }
 
     function computeTotalTime() {
@@ -611,16 +598,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (hiddenIn) hiddenIn.value = inStr;
       if (hiddenOut) hiddenOut.value = outStr;
 
-      function timeToMinutes(timeStr) {
-        let [time, period] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-        return hours * 60 + minutes;
-      }
-
       let tIn = timeToMinutes(inStr);
       let tOut = timeToMinutes(outStr);
+      if (tIn === null || tOut === null) {
+        if (totTimeField) totTimeField.value = '';
+        return;
+      }
       if (tOut <= tIn) tOut += 24 * 60; // cross-midnight
       const diff = tOut - tIn; // minutes
       const hh = Math.floor(diff / 60);
@@ -629,16 +612,66 @@ document.addEventListener('DOMContentLoaded', function () {
       if (totTimeField) totTimeField.value = ` (${hh}:${mmPad})`;
     }
 
-    populateTimePickers();
-    ['timeIn', 'timeOut'].forEach(prefix => {
-      ['Hour', 'Minute', 'AmPm'].forEach(suffix => {
-        const el = document.getElementById(prefix + suffix);
-        if (el) el.addEventListener('change', computeTotalTime);
-      });
-    });
+    function populateSelectsIfPresent() {
+      const parts = ['timeIn', 'timeOut'];
+      let allPresent = true;
+      parts.forEach(prefix => {
+        const hour = document.getElementById(prefix + 'Hour');
+        const minute = document.getElementById(prefix + 'Minute');
+        const ampm = document.getElementById(prefix + 'AmPm');
+        if (!hour || !minute || !ampm) { allPresent = false; return; }
 
-    // initialize once
-    computeTotalTime();
+        if (!hour.dataset.populated) {
+          hour.innerHTML = '';
+          hour.appendChild(new Option('Hour', ''));
+          for (let h = 1; h <= 12; h++) hour.appendChild(new Option(String(h), String(h)));
+          hour.dataset.populated = '1';
+        }
+        if (!minute.dataset.populated) {
+          minute.innerHTML = '';
+          minute.appendChild(new Option('Min', ''));
+          for (let m = 0; m < 60; m++) minute.appendChild(new Option(String(m).padStart(2, '0'), String(m).padStart(2, '0')));
+          minute.dataset.populated = '1';
+        }
+        if (!ampm.dataset.populated) {
+          ampm.innerHTML = '';
+          ampm.appendChild(new Option('AM/PM', ''));
+          ['AM', 'PM'].forEach(x => ampm.appendChild(new Option(x, x)));
+          ampm.dataset.populated = '1';
+        }
+      });
+      return allPresent;
+    }
+
+    function attachChangeListenersOnce() {
+      ['timeIn', 'timeOut'].forEach(prefix => {
+        ['Hour', 'Minute', 'AmPm'].forEach(suffix => {
+          const el = document.getElementById(prefix + suffix);
+          if (!el) return;
+          if (el.dataset.listenerAttached) return;
+          el.addEventListener('change', computeTotalTime);
+          el.dataset.listenerAttached = '1';
+        });
+      });
+    }
+
+    // Retry init briefly in case DOM is modified by other scripts
+    let tries = 0;
+    const maxTries = 12;
+    const tryInit = () => {
+      tries += 1;
+      populateSelectsIfPresent();
+      attachChangeListenersOnce();
+      computeTotalTime();
+      // if some selects weren't present yet, retry a few times (150ms interval)
+      if (tries < maxTries) {
+        const needed = !document.getElementById('timeInHour') || !document.getElementById('timeOutHour');
+        if (needed) setTimeout(tryInit, 150);
+      }
+    };
+
+    // kick off immediately (DOMContentLoaded wrapper above ensures DOM ready)
+    tryInit();
   })();
 
   // --- Signature canvas setup ---
@@ -2176,8 +2209,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
  // --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
  (function wireVehicleInfoForm() {
-// --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
-(function wireVehicleInfoForm() {
   try {
     const vForm = document.getElementById('vehicle-info-form');
     if (!vForm) return;
@@ -2329,7 +2360,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!el) {
             el = document.createElement('input');
             el.type = 'hidden';
-            el.name = name;
+            el.name = 'signature';
             if (id) el.id = id;
             form && form.appendChild(el);
           }

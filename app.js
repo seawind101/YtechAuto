@@ -31,8 +31,6 @@ app.set('views', path.join(__dirname, 'views'));
 //Middleware
 app.use(cookieParser());
 app.use(express.static('public'));
-// serve uploaded files (signatures, images, videos)
-app.use('/upload', express.static(path.join(__dirname, 'upload')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -41,6 +39,9 @@ app.use(session({
     resave: false,
     saveUninitialized: true
 }));
+
+// serve uploaded files (videos/images/signatures)
+app.use('/upload', express.static(path.join(__dirname, 'upload')));
 
 //Routes
 const indexRouter = require('./routes/index');

@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   })();
 
-  // --- Video upload (keeps previous upload flow intact) ---
+  // --- Video upload ---
   (function setupVideoUpload() {
     const uploadZone = document.getElementById('video-upload-zone');
     const videoFileInput = document.getElementById('video-file');
@@ -206,6 +206,23 @@ document.addEventListener('DOMContentLoaded', function () {
       const formData = new FormData();
       formData.append('video', selectedFile);
 
+      // include ticket id if available (server may expect ticketID / ticketId / id)
+      let ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
+                     document.getElementById('vehicle-ticketId')?.value ||
+                     document.getElementById('ticketId')?.value || null;
+      if (!ticketId) {
+        try {
+          const p = new URLSearchParams(window.location.search);
+          ticketId = p.get('id') || p.get('ticketId') || p.get('ticketID') || null;
+        } catch (e) { ticketId = null; }
+      }
+      if (ticketId) {
+        formData.append('ticketID', ticketId);
+        formData.append('ticketId', ticketId);
+        // also append generic 'id' for maximal compatibility
+        formData.append('id', ticketId);
+      }
+      // include ticketID if needed: fd.append('ticketID', ticketIdValue);
       uploadBtn.textContent = 'Uploading...';
       uploadBtn.disabled = true;
 
@@ -337,6 +354,22 @@ document.addEventListener('DOMContentLoaded', function () {
       const fd = new FormData();
       // append multiple files using the same field name "image"
       selectedFiles.forEach(f => fd.append('image', f));
+      // include ticket id if available (server may expect ticketID / ticketId / id)
+      let ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
+                     document.getElementById('vehicle-ticketId')?.value ||
+                     document.getElementById('ticketId')?.value || null;
+      if (!ticketId) {
+        try {
+          const p = new URLSearchParams(window.location.search);
+          ticketId = p.get('id') || p.get('ticketId') || p.get('ticketID') || null;
+        } catch (e) { ticketId = null; }
+      }
+      if (ticketId) {
+        fd.append('ticketID', ticketId);
+        fd.append('ticketId', ticketId);
+        // also append generic 'id' for maximal compatibility
+        fd.append('id', ticketId);
+      }
       // include ticketID if needed: fd.append('ticketID', ticketIdValue);
       uploadBtn.textContent = 'Uploading...'; uploadBtn.disabled = true;
 

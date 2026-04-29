@@ -196,27 +196,11 @@
         <div class="form-group full-width">
           <label>Customer Signature</label>
           <div class="signature-container">
-            <% if (!hasServerTicket) { %>
-              <canvas id="signatureCanvas" width="400" height="200" style="border: 1px solid var(--border); cursor: crosshair; background: white;"></canvas>
-              <input type="hidden" name="signature" id="signatureData">
-              <div style="margin-top: 5px;">
-                <button type="button" id="clearSignature" style="background-color: brown; color: white;" class="btn btn-secondary editable-only">Clear Signature</button>
-              </div>
-            <% } else { %>
-              <div class="signature-images" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                <% if (ticket && ticket.signatures && ticket.signatures.length) { %>
-                  <% ticket.signatures.forEach(function(sig){ %>
-                    <% var src = sig.relativePath ? ('/' + sig.relativePath.replace(/^\/+/, '')) : ('/upload/signatures/' + sig.filename); %>
-                    <div style="border:1px solid var(--border);padding:6px;border-radius:6px;background:#fff;">
-                      <img src="<%= src %>" alt="signature-<%= sig.id %>" style="max-width:400px;max-height:200px;display:block;" />
-                      <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px;">Uploaded: <%= sig.uploadDate || '' %></div>
-                    </div>
-                  <% }) %>
-                <% } else { %>
-                  <div style="padding:12px;border:1px dashed var(--border);border-radius:6px;background:#fafafa;color:var(--text-muted);">No signature on file</div>
-                <% } %>
-              </div>
-            <% } %>
+            <canvas id="signatureCanvas" width="400" height="200" style="border: 1px solid var(--border); cursor: crosshair; background: white;"></canvas>
+            <input type="hidden" name="signature" id="signatureData">
+            <div style="margin-top: 5px;">
+            <button type="button" id="clearSignature" style="background-color: brown; color: white;" class="btn btn-secondary editable-only">Clear Signature</button>
+          </div>
           </div>
         </div>
 

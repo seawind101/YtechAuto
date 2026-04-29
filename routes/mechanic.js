@@ -146,15 +146,7 @@ router.get('/mechanic', (req, res) => {
         }
         if (!ticket) return res.status(404).send('Ticket not found');
 
-        // also load any signature files associated with this ticket
-        db.all('SELECT * FROM signatures WHERE ticketID = ?', [ticketId], (sigErr, sigRows) => {
-            if (sigErr) {
-                console.error('Error fetching signatures for ticket:', sigErr);
-                sigRows = [];
-            }
-            ticket.signatures = sigRows || [];
-
-            db.all('SELECT * FROM recRepairs WHERE ticketId = ?', [ticketId], (err2, repairs) => {
+        db.all('SELECT * FROM recRepairs WHERE ticketId = ?', [ticketId], (err2, repairs) => {
             if (err2) {
                 console.error('Error fetching repairs:', err2);
                 repairs = [];
@@ -319,8 +311,6 @@ router.get('/mechanic', (req, res) => {
         });
     });
 });
-});
-
 
 router.post('/mechanic', async (req, res) => {
     // collect fields
@@ -428,11 +418,56 @@ router.post('/mechanic', async (req, res) => {
             db.run(insertTicketSql, ticketParams, function (err) {
                 if (err) {
                     console.error('Failed to insert ticket:', err);
-                    // If this is a UNIQUE constraint (duplicate RO) and we're creating a new ticket, stop and notify the user
-                    if (err.code === 'SQLITE_CONSTRAINT') {
-                        // send a small HTML response that triggers a popup in the browser and returns the user
-                        const msg = 'The RONum already exist';
-                        return res.status(409).send(`<html><head><meta charset="utf-8"></head><body><script>alert(${JSON.stringify(msg)});window.history.back();</script></body></html>`);
+                    // handle UNIQUE constraint on repairOrderNumber by updating the existing ticket instead
+                    if (err.code === 'SQLITE_CONSTRAINT' && String(err.message).toLowerCase().includes('repairordernumber')) {
+                        console.log('repairOrderNumber already exists — attempting to update existing ticket and replace repairs');
+                        return db.get('SELECT id FROM tickets WHERE repairOrderNumber = ?', [roNum], (getErr, existingRow) => {
+                            if (getErr) {
+                                console.error('Failed to lookup existing ticket by repairOrderNumber:', getErr);
+                                return res.status(500).send('DB error looking up existing ticket');
+                            }
+                            if (!existingRow || !existingRow.id) {
+                                console.error('Unique constraint reported but existing ticket not found for RO:', roNum);
+                                return res.status(500).send('Unique constraint on repair order and existing ticket not found');
+                            }
+                            const existingId = existingRow.id;
+                            // update ticket record with new values
+                            const updateSql = `UPDATE tickets SET date=?, techName=?, timeIn=?, timeOut=?, totalTime=?, customerName=?, customerAddress=?, customerPhone=?, customerEmail=?, concern=?, diagnosis=?, recommendedRepairs=?, dateSigned=?, stat=? WHERE id=?`;
+                            const updateParams = [roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus, existingId];
+                            db.run(updateSql, updateParams, function (updErr) {
+                                if (updErr) {
+                                    console.error('Failed to update existing ticket:', updErr);
+                                    return res.status(500).send('Failed to update existing ticket: ' + (updErr.message || 'unknown'));
+                                }
+
+                                // Replace existing recRepairs for this ticket with the provided repairs
+                                db.run('DELETE FROM recRepairs WHERE ticketId = ?', [existingId], (delErr) => {
+                                    if (delErr) console.error('Failed to delete old recRepairs for ticket', existingId, delErr);
+
+                                    if (!repairs || repairs.length === 0) return res.redirect('/mechanic?id=' + existingId);
+
+                                    const insertRecSql = `INSERT INTO recRepairs (ticketId, repairDescription, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+                                    const stmt = db.prepare(insertRecSql);
+                                    repairs.forEach(r => {
+                                        const desc = r.repairDescription || '';
+                                        const qty = Number.isFinite(Number(r.qty)) ? parseInt(r.qty) : (r.qty ? parseInt(r.qty) : 0);
+                                        const partNumber = r.partNumber || '';
+                                        const partPrice = Number.isFinite(Number(r.partPrice)) ? parseFloat(r.partPrice) : (r.partPrice ? parseFloat(r.partPrice) : 0);
+                                        const partsTotal = Number.isFinite(Number(r.partsTotal)) ? parseFloat(r.partsTotal) : (r.partsTotal ? parseFloat(r.partsTotal) : (qty * partPrice));
+                                        const laborHours = Number.isFinite(Number(r.laborHours)) ? parseFloat(r.laborHours) : (r.laborHours ? parseFloat(r.laborHours) : 0);
+                                        const laborTotal = Number.isFinite(Number(r.laborTotal)) ? parseFloat(r.laborTotal) : (r.laborTotal ? parseFloat(r.laborTotal) : (laborHours * 100));
+
+                                        stmt.run([existingId, desc, qty, partNumber, partPrice, partsTotal, laborHours, laborTotal], (rErr) => {
+                                            if (rErr) console.error('Failed to insert recRepair row for existing ticket:', rErr);
+                                        });
+                                    });
+                                    stmt.finalize((finalErr) => {
+                                        if (finalErr) console.error('Failed finalizing recRepairs stmt for existing ticket:', finalErr);
+                                        return res.redirect('/mechanic?id=' + existingId);
+                                    });
+                                });
+                            });
+                        });
                     }
                     return res.status(500).send('Failed to insert ticket: ' + (err && err.message ? err.message : 'unknown'));
                 }
@@ -1238,9 +1273,12 @@ router.post('/upload-video', videoUpload.single('video'), (req, res) => {
 
     const file = req.file;
     const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
+
+    // accept several common field names from the client (ticketID, ticketId, id)
+    const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id)) || null;
     const insertSql = `INSERT INTO videos (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
                      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
-    const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath, file.mimetype, file.size];
+    const params = [ticketIdValue, file.filename, file.originalname, relativePath, file.mimetype, file.size];
 
     db.run(insertSql, params, function (err) {
         if (err) {
@@ -1270,12 +1308,25 @@ router.post('/upload-image', imageUpload.array('image'), (req, res) => {
     let pending = req.files.length;
 
     req.files.forEach((file) => {
-        const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
-        const insertSql = `INSERT INTO pictures (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
-                     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
-        const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath, file.mimetype, file.size];
+            const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
+        // accept several common field names from the client (ticketID, ticketId, id)
+        // fallback to query params and Referer URL (if present)
+        const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id))
+            || (req.query && (req.query.ticketID || req.query.ticketId || req.query.id))
+            || (() => {
+                const ref = req.get('referer') || req.get('referrer') || '';
+                try {
+                    const u = new URL(ref);
+                    return u.searchParams.get('id') || u.searchParams.get('ticketId') || u.searchParams.get('ticketID') || null;
+                } catch (e) {
+                    return null;
+                }
+            })() || null;
+         const insertSql = `INSERT INTO pictures (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
+                      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
+         const params = [ticketIdValue, file.filename, file.originalname, relativePath, file.mimetype, file.size];
 
-        db.run(insertSql, params, function (err) {
+         db.run(insertSql, params, function (err) {
             if (err) {
                 console.error('upload-image: DB insert failed for', file.filename, err);
                 // remove file to avoid orphans
@@ -1304,9 +1355,11 @@ router.post('/upload-signature', signatureUpload.single('signature'), (req, res)
 
     const file = req.file;
     const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
+    // accept several common field names from the client (ticketID, ticketId, id)
+    const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id)) || null;
     const insertSql = `INSERT INTO signatures (ticketID, filename, originalName, relativePath, uploadDate)
                      VALUES (?, ?, ?, ?, datetime('now'))`;
-    const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath];
+    const params = [ticketIdValue, file.filename, file.originalname, relativePath];
 
     db.run(insertSql, params, function (err) {
         if (err) {
@@ -1324,26 +1377,6 @@ router.post('/upload-signature', signatureUpload.single('signature'), (req, res)
 });
 
 router.post('/ticket-check', (req, res) => {
-    const db = req.app && req.app.locals && req.app.locals.db;
-    if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
-
-    const ticketId = req.body.ticketId;
-    if (!ticketId) return res.status(400).json({ success: false, message: 'Missing ticketId' });
-
-    const sql = `SELECT id, ticketID, filename, originalName, relativePath, uploadDate
-               FROM signatures
-               WHERE ticketID = ?
-               ORDER BY id DESC
-               LIMIT 1`;
-    db.get(sql, [ticketId], (err, row) => {
-        if (err) return res.status(500).json({ success: false, error: err.message });
-        if (!row) return res.status(404).json({ success: false, message: 'Signature not found' });
-        return res.json({ success: true, signature: row });
-    });
-});
-
-// Backwards-compatible route: previously client expected `/mechanic/ticket-check`
-router.post('/mechanic/ticket-check', (req, res) => {
     const db = req.app && req.app.locals && req.app.locals.db;
     if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
 

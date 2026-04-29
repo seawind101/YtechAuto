@@ -1,7 +1,6 @@
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE,
-    status TEXT NOT NULL
+    email TEXT NOT NULL UNIQUE
 );
  
 CREATE TABLE tickets (

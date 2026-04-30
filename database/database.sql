@@ -10,7 +10,7 @@ CREATE TABLE tickets (
     date TEXT NOT NULL,
     techName TEXT NOT NULL,
     timeIn TEXT NOT NULL,
-    timeOut TEXT,yo
+    timeOut TEXT,
     totalTime TEXT NOT NULL,
     customerName TEXT NOT NULL,
     customerAddress TEXT NOT NULL,

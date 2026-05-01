@@ -14,7 +14,7 @@ fs.mkdirSync(imageDir, { recursive: true });
 fs.mkdirSync(signatureDir, { recursive: true });
 
 // save signature dataURL to signatures table (write file, insert DB row)
-async function saveSignatureFromDataUrl(db, dataUrl, clientName) {
+async function saveSignatureFromDataUrl(db, dataUrl, clientName, ticketId = null) {
     return new Promise((resolve, reject) => {
         if (!dataUrl || typeof dataUrl !== 'string') return resolve(null);
         const comma = dataUrl.indexOf(',');
@@ -44,7 +44,7 @@ async function saveSignatureFromDataUrl(db, dataUrl, clientName) {
                 if (ensureErr) return reject(ensureErr);
 
                 const insertSql = `INSERT INTO signatures (ticketID, filename, originalName, relativePath, uploadDate) VALUES (?, ?, ?, ?, datetime('now'))`;
-                db.run(insertSql, [null, filename, clientName || filename, relPath], function (insertErr) {
+                db.run(insertSql, [ticketId, filename, clientName || filename, relPath], function (insertErr) {
                     if (insertErr) {
                         // cleanup file if DB insert fails
                         try { fs.unlinkSync(savePath); } catch (e) { /* ignore */ }
@@ -477,6 +477,32 @@ router.post('/mechanic', async (req, res) => {
         });
     };
 
+    // finalize save actions: save recRepairs (if provided) then save signature (if provided), then redirect
+    const finalizeSave = (targetId) => {
+        const afterRepairs = () => {
+            if (body.signature && typeof body.signature === 'string' && body.signature.trim() !== '') {
+                saveSignatureFromDataUrl(db, body.signature, custName, targetId)
+                    .then(() => res.redirect('/mechanic?id=' + targetId))
+                    .catch((sigErr) => {
+                        console.error('Failed to save signature for ticket', targetId, sigErr);
+                        // still redirect even if signature save fails
+                        return res.redirect('/mechanic?id=' + targetId);
+                    });
+            } else {
+                return res.redirect('/mechanic?id=' + targetId);
+            }
+        };
+
+        if (repairsProvided) {
+            saveRecRepairs(targetId, repairs, (rErr) => {
+                if (rErr) { console.error('Failed saving recRepairs on save:', rErr); return res.status(500).send('Failed to save repairs'); }
+                return afterRepairs();
+            });
+        } else {
+            return afterRepairs();
+        }
+    };
+
     // Helper: perform update for existing ticket id
     const performUpdate = (targetId) => {
         const updateSql = `UPDATE tickets SET repairOrderNumber = ?, date = ?, techName = ?, timeIn = ?, timeOut = ?, totalTime = ?, customerName = ?, customerAddress = ?, customerPhone = ?, customerEmail = ?, concern = ?, diagnosis = ?, recommendedRepairs = ?, dateSigned = ?, stat = ? WHERE id = ?`;
@@ -486,15 +512,8 @@ router.post('/mechanic', async (req, res) => {
                 console.error('Failed to update ticket:', updErr);
                 return res.status(500).send('Failed to update ticket: ' + (updErr.message || updErr));
             }
-            if (repairsProvided) {
-                saveRecRepairs(targetId, repairs, (rErr) => {
-                    if (rErr) { console.error('Failed saving recRepairs on update:', rErr); return res.status(500).send('Failed to save repairs'); }
-                    return res.redirect('/mechanic?id=' + targetId);
-                });
-            } else {
-                // client didn't submit repairs; leave existing recRepairs unchanged
-                return res.redirect('/mechanic?id=' + targetId);
-            }
+            // perform child saves (repairs + signature) then redirect
+            return finalizeSave(targetId);
         });
     };
 
@@ -520,10 +539,8 @@ router.post('/mechanic', async (req, res) => {
                     return res.status(500).send('Failed to create ticket: ' + (insErr.message || insErr));
                 }
                 const newId = this.lastID;
-                saveRecRepairs(newId, repairs, (rErr) => {
-                    if (rErr) { console.error('Failed saving recRepairs on insert:', rErr); /* optionally cleanup */ }
-                    return res.redirect('/mechanic?id=' + newId);
-                });
+                // finalize repairs/signature save and redirect
+                return finalizeSave(newId);
             });
         });
     };
@@ -1372,40 +1389,6 @@ router.post('/upload-image', imageUpload.array('image'), (req, res) => {
     });
 });
 
-//signitures upload route
-router.post('/upload-signature', signatureUpload.single('signature'), (req, res) => {
-    const db = req.app.locals.db;
-    if (!db) {
-        if (req.file) fs.unlink(req.file.path, () => { });
-        return res.status(500).json({ success: false, message: 'Database not available' });
-    }
-    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
-
-    console.log('Received signature upload request with body:', req.body);
-    const file = req.file;
-    const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
-    // accept several common field names from the client (ticketID, ticketId, id)
-    const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id)) || null;
-    console.log('Parsed ticketIdValue for signature upload:', ticketID);
-    const insertSql = `INSERT INTO signatures (ticketID, filename, originalName, relativePath, uploadDate)
-                     VALUES (?, ?, ?, ?, datetime('now'))`;
-    const params = [ticketIdValue, file.filename, file.originalname, relativePath];
-
-    console.log('Inserting ticket with params:', params);
-    db.run(insertSql, params, function (err) {
-        if (err) {
-            console.error('DB insert failed, removing uploaded file:', err);
-            // remove the saved file to avoid orphan
-            fs.unlink(file.path, (unlinkErr) => {
-                if (unlinkErr) console.error('Failed to unlink file after DB error:', unlinkErr);
-                return res.status(500).json({ success: false, message: 'Database error' });
-            });
-            return;
-        }
-        // success
-        res.json({ success: true, id: this.lastID, path: relativePath });
-    });
-});
 
 router.post('/ticket-check', (req, res) => {     
     const db = req.app && req.app.locals && req.app.locals.db;

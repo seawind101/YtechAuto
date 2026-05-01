@@ -372,6 +372,8 @@ document.addEventListener('DOMContentLoaded', function () {
       // include ticketID if needed: fd.append('ticketID', ticketIdValue);
       uploadBtn.textContent = 'Uploading...'; uploadBtn.disabled = true;
 
+      console.log('Uploading images for ticketId:', ticketId, 'Files:', selectedFiles);
+
       fetch('/upload-image', { method: 'POST', body: fd })
         .then(res => res.json())
         .then((data) => {
@@ -760,13 +762,32 @@ document.addEventListener('DOMContentLoaded', function () {
         const endpoint = '/upload-signature';
         console.log('uploadSignatureAndApply: POST', 'ticketId=', ticketId);
 
-        fetch(endpoint, {
-          method: 'POST',
-        }).then(async res => {
-          if (res.status === 204) { console.log('signature saved (204)'); return; }
-          if (res.ok) { let p = null; try { p = await res.json(); } catch (e) { } if (p && p.success) { console.log('signature saved'); return; } console.warn('signature save unexpected ok response', res.status, p); return; }
-          let err = null; try { err = await res.json(); } catch (e) { err = null; } console.error('signature save failed', res.status, err);
-        }).catch(err => { console.error('POST failed', err); });
+        // build multipart form with the drawn signature as a file so multer can process it
+        try {
+          const fd = new FormData();
+          const blob = dataURLToBlob(signatureData.value);
+          fd.append('signature', blob, 'signature.png');
+          // include ticket id under common field names so server can attach the file to the ticket
+          if (ticketId) {
+            fd.append('ticketID', ticketId);
+            fd.append('ticketId', ticketId);
+            fd.append('id', ticketId);
+          }
+
+          const resp = await fetch(endpoint, { method: 'POST', body: fd });
+          if (resp.status === 204) { console.log('signature saved (204)'); return; }
+          if (resp.ok) {
+            let p = null;
+            try { p = await resp.json(); } catch (e) { }
+            if (p && p.success) { console.log('signature saved'); return; }
+            console.warn('signature save unexpected ok response', resp.status, p);
+            return;
+          }
+          let err = null; try { err = await resp.json(); } catch (e) { err = null; }
+          console.error('signature save failed', resp.status, err);
+        } catch (err) {
+          console.error('POST failed', err);
+        }
 
 
         // remove clear button and swap canvas for image preview later
@@ -792,11 +813,14 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
 
-      // If there's a drawn signature, upload it and apply on success
+      // If there's a drawn signature, submit the ticket form (include the dataURL)
+      // so the server can save the signature after the ticket is created.
       if (signatureData.value) {
-        const ok = await uploadSignatureAndApply();
-        if (ok) return;
-        // on failure, fall through to clearing the canvas so user can retry
+        const formEl = document.querySelector('form');
+        if (formEl) {
+          formEl.submit();
+          return;
+        }
       }
 
       // default clear behavior: just clear the canvas and signatureData

@@ -43,6 +43,7 @@
     <section class="section">
       <h2>Repair Order</h2>
       <form class="repair-order-form" id="repForm" method="POST" action="/mechanic">
+        <input type="hidden" name="ticketId" value="<%= (typeof ticket !== 'undefined' && ticket && ticket.id) ? ticket.id : '' %>">
         <div class="form-grid">
           <div class="form-group">
             <label for="roNum">Repair Order or Task Number #</label>
@@ -131,22 +132,22 @@
             </thead>
             <tbody>
               <tr>
-                <td><input type="text" placeholder="Description"></td>
-                <td><input type="number" placeholder="1" style="width:4em"></td>
-                <td><input type="text" placeholder="Part #"></td>
-                <td><input type="text" placeholder="0.00"></td>
-                <td><input type="text" placeholder="0.00" readonly tabindex="-1"></td>
-                <td><input type="text" placeholder="0.00"></td>
-                <td><input type="text" placeholder="0.00" readonly tabindex="-1"></td>
+                <td><input class="rp-desc" name="repairDescription[]" type="text" placeholder="Description"></td>
+                <td><input class="rp-qty" name="qty[]" type="number" placeholder="1" style="width:4em"></td>
+                <td><input class="rp-um" name="partNumber[]" type="text" placeholder="Part #"></td>
+                <td><input class="rp-partprice" name="partPrice[]" type="text" placeholder="0.00"></td>
+                <td><input class="rp-partstotal" name="partsTotal[]" type="text" placeholder="0.00" readonly tabindex="-1"></td>
+                <td><input class="rp-laborhours" name="laborHours[]" type="text" placeholder="0.00"></td>
+                <td><input class="rp-labortotal" name="laborTotal[]" type="text" placeholder="0.00" readonly tabindex="-1"></td>
               </tr>
               <tr>
-                <td><input type="text" placeholder="Description"></td>
-                <td><input type="number" placeholder="1" style="width:4em"></td>
-                <td><input type="text" placeholder="Part #"></td>
-                <td><input type="text" placeholder="0.00"></td>
-                <td><input type="text" placeholder="0.00" readonly tabindex="-1"></td>
-                <td><input type="text" placeholder="0.00"></td>
-                <td><input type="text" placeholder="0.00" readonly tabindex="-1"></td>
+                <td><input class="rp-desc" name="repairDescription[]" type="text" placeholder="Description"></td>
+                <td><input class="rp-qty" name="qty[]" type="number" placeholder="1" style="width:4em"></td>
+                <td><input class="rp-um" name="partNumber[]" type="text" placeholder="Part #"></td>
+                <td><input class="rp-partprice" name="partPrice[]" type="text" placeholder="0.00"></td>
+                <td><input class="rp-partstotal" name="partsTotal[]" type="text" placeholder="0.00" readonly tabindex="-1"></td>
+                <td><input class="rp-laborhours" name="laborHours[]" type="text" placeholder="0.00"></td>
+                <td><input class="rp-labortotal" name="laborTotal[]" type="text" placeholder="0.00" readonly tabindex="-1"></td>
               </tr>
             </tbody>
           </table>
@@ -209,7 +210,7 @@
         <input type="hidden" id="ticketStatus" name="ticketStatus" value="">
       </form>
     </section>
-
+    
     <!-- Vehicle Inspection Section (Accordion) -->
     <section class="section">
       <h2>Vehicle Inspection - Digital Courtesy Check</h2>

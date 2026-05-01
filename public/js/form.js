@@ -427,8 +427,19 @@ document.addEventListener('DOMContentLoaded', function () {
       const partsTotal = qty * price;
       const laborTotal = laborHours * 100; // per your request
 
-      if (partsTotalEl) { partsTotalEl.value = fmt(partsTotal); }
-      if (laborTotalEl) { laborTotalEl.value = fmt(laborTotal); }
+      // If the row was populated from the server and contains saved totals, do not overwrite them
+      // unless the user edits the numeric inputs (we mark the row with data-force-calc on user edits).
+      try {
+        if (partsTotalEl) {
+          if (!partsTotalEl.value || row.dataset.forceCalc === '1') partsTotalEl.value = fmt(partsTotal);
+        }
+        if (laborTotalEl) {
+          if (!laborTotalEl.value || row.dataset.forceCalc === '1') laborTotalEl.value = fmt(laborTotal);
+        }
+      } catch (e) {
+        if (partsTotalEl) partsTotalEl.value = fmt(partsTotal);
+        if (laborTotalEl) laborTotalEl.value = fmt(laborTotal);
+      }
 
       updateSubtotals();
     }
@@ -516,6 +527,7 @@ document.addEventListener('DOMContentLoaded', function () {
             let v = Number(el.value) || 0;
             if (v < 0) v = 0;
             el.value = (Math.round(v * 100) / 100).toFixed(2);
+            try { row.dataset.forceCalc = '1'; } catch(e){}
             calcRow(row);
           });
         }
@@ -1138,6 +1150,74 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   })();
 
+});
+
+// Intercept main repair-order form submit to prevent creating duplicate ROs
+document.addEventListener('DOMContentLoaded', () => {
+  const repForm = document.getElementById('repForm');
+  if (!repForm) return;
+
+  repForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const roInput = document.getElementById('roNum');
+    const roVal = roInput ? (roInput.value || '').toString().trim() : '';
+    if (!roVal) {
+      alert('Repair Order number (RO) is required');
+      return;
+    }
+
+    const serverTicket = window.__SERVER_TICKET__ || null;
+
+    // helper to check RO existence on server
+    const checkRo = async (ro) => {
+      try {
+        const res = await fetch('/mechanic/check-ro', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roNum: String(ro) })
+        });
+        if (!res.ok) return { ok: false };
+        const json = await res.json().catch(() => null);
+        return { ok: true, json };
+      } catch (err) { return { ok: false, err }; }
+    };
+
+    // If page loaded with a server ticket, allow submission when RO matches that ticket.
+    if (serverTicket && serverTicket.id) {
+      const serverRo = (serverTicket.repairOrderNumber || serverTicket.roNum || '').toString();
+      if (serverRo && serverRo === roVal) {
+        // same RO as the ticket being edited -> allow update
+        repForm.submit();
+        return;
+      }
+
+      // RO changed compared to loaded ticket -> check if that RO exists on another ticket
+      const check = await checkRo(roVal);
+      if (check.ok && check.json && check.json.success && check.json.exists) {
+        // if it exists but is the same ticket id, allow; else block
+        const existingId = String(check.json.ticketId || '');
+        if (existingId && existingId === String(serverTicket.id)) {
+          repForm.submit(); return;
+        }
+        alert('The RONum already exist');
+        return;
+      }
+
+      // nothing found or server error - proceed and let server validate as fallback
+      repForm.submit();
+      return;
+    }
+
+    // No server ticket (creating new) - check for duplicate RO
+    const check = await checkRo(roVal);
+    if (check.ok && check.json && check.json.success && check.json.exists) {
+      alert('The RONum already exist');
+      return;
+    }
+
+    // not found (or server issue) - submit and let server handle final validation
+    repForm.submit();
+  }, { capture: true });
 });
 
 // --- Populate form from server-provided ticket JSON (if present) ---

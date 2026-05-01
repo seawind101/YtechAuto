@@ -30,7 +30,7 @@
 </head>
 <body>
   <header class="site-header">
-    <a href="/">Auto Repair Ticket System</a>
+    <a href="/mechanicDis">Auto Repair Ticket System</a>
     <p class="tagline">Mechanic View - Create & Edit Tickets</p>
   </header>
 
@@ -43,6 +43,7 @@
     <section class="section">
       <h2>Repair Order</h2>
       <form class="repair-order-form" id="repForm" method="POST" action="/mechanic">
+        <input type="hidden" name="ticketId" value="<%= (typeof ticket !== 'undefined' && ticket && ticket.id) ? ticket.id : '' %>">
         <div class="form-grid">
           <div class="form-group">
             <label for="roNum">Repair Order or Task Number #</label>
@@ -131,22 +132,22 @@
             </thead>
             <tbody>
               <tr>
-                <td><input type="text" placeholder="Description"></td>
-                <td><input type="number" placeholder="1" style="width:4em"></td>
-                <td><input type="text" placeholder="Part #"></td>
-                <td><input type="text" placeholder="0.00"></td>
-                <td><input type="text" placeholder="0.00" readonly tabindex="-1"></td>
-                <td><input type="text" placeholder="0.00"></td>
-                <td><input type="text" placeholder="0.00" readonly tabindex="-1"></td>
+                <td><input class="rp-desc" name="repairDescription[]" type="text" placeholder="Description"></td>
+                <td><input class="rp-qty" name="qty[]" type="number" placeholder="1" style="width:4em"></td>
+                <td><input class="rp-um" name="partNumber[]" type="text" placeholder="Part #"></td>
+                <td><input class="rp-partprice" name="partPrice[]" type="text" placeholder="0.00"></td>
+                <td><input class="rp-partstotal" name="partsTotal[]" type="text" placeholder="0.00" readonly tabindex="-1"></td>
+                <td><input class="rp-laborhours" name="laborHours[]" type="text" placeholder="0.00"></td>
+                <td><input class="rp-labortotal" name="laborTotal[]" type="text" placeholder="0.00" readonly tabindex="-1"></td>
               </tr>
               <tr>
-                <td><input type="text" placeholder="Description"></td>
-                <td><input type="number" placeholder="1" style="width:4em"></td>
-                <td><input type="text" placeholder="Part #"></td>
-                <td><input type="text" placeholder="0.00"></td>
-                <td><input type="text" placeholder="0.00" readonly tabindex="-1"></td>
-                <td><input type="text" placeholder="0.00"></td>
-                <td><input type="text" placeholder="0.00" readonly tabindex="-1"></td>
+                <td><input class="rp-desc" name="repairDescription[]" type="text" placeholder="Description"></td>
+                <td><input class="rp-qty" name="qty[]" type="number" placeholder="1" style="width:4em"></td>
+                <td><input class="rp-um" name="partNumber[]" type="text" placeholder="Part #"></td>
+                <td><input class="rp-partprice" name="partPrice[]" type="text" placeholder="0.00"></td>
+                <td><input class="rp-partstotal" name="partsTotal[]" type="text" placeholder="0.00" readonly tabindex="-1"></td>
+                <td><input class="rp-laborhours" name="laborHours[]" type="text" placeholder="0.00"></td>
+                <td><input class="rp-labortotal" name="laborTotal[]" type="text" placeholder="0.00" readonly tabindex="-1"></td>
               </tr>
             </tbody>
           </table>
@@ -209,7 +210,7 @@
         <input type="hidden" id="ticketStatus" name="ticketStatus" value="">
       </form>
     </section>
-
+    
     <!-- Vehicle Inspection Section (Accordion) -->
     <section class="section">
       <h2>Vehicle Inspection - Digital Courtesy Check</h2>
@@ -577,10 +578,26 @@
                   <tr><td>Pads/Shoes RR</td><td>-</td><td><select><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></select></td></tr>
                   <tr><td>Pads/Shoes FL</td><td>-</td><td><select><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></select></td></tr>
 
-                  <tr><td>Rotor/Drum FL (Thickness/Max Dia.)</td><td><input type="text" placeholder="Spec"></td><td><select><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></select></td></tr>
-                  <tr><td>Rotor/Drum FR (Thickness/Max Dia.)</td><td><input type="text" placeholder="Spec"></td><td><select><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></select></td></tr>
-                  <tr><td>Rotor/Drum RL (Thickness/Max Dia.)</td><td><input type="text" placeholder="Spec"></td><td><select><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></select></td></tr>
-                  <tr><td>Rotor/Drum RR (Thickness/Max Dia.)</td><td><input type="text" placeholder="Spec"></td><td><select><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></select></td></tr>
+                  <tr>
+                    <td>Rotor/Drum FL (Thickness/Max Dia.)</td>
+                    <td><input type="text" placeholder="Spec"></td>
+                    <td><input type="text" placeholder="Actual"></td>
+                  </tr>
+                  <tr>
+                    <td>Rotor/Drum FR (Thickness/Max Dia.)</td>
+                    <td><input type="text" placeholder="Spec"></td>
+                    <td><input type="text" placeholder="Actual"></td>
+                  </tr>
+                  <tr>
+                    <td>Rotor/Drum RL (Thickness/Max Dia.)</td>
+                    <td><input type="text" placeholder="Spec"></td>
+                    <td><input type="text" placeholder="Actual"></td>
+                  </tr>
+                  <tr>
+                    <td>Rotor/Drum RR (Thickness/Max Dia.)</td>
+                    <td><input type="text" placeholder="Spec"></td>
+                    <td><input type="text" placeholder="Actual"></td>
+                  </tr>
 
                   <tr><td>Wheel Bearings FL</td><td><select><option>OK</option><option>Replace</option><option>N/A</option></select></td><td>-</td></tr>
                   <tr><td>Wheel Bearings FR</td><td><select><option>OK</option><option>Replace</option><option>N/A</option></select></td><td>-</td></tr>

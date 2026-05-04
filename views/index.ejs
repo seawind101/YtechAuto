@@ -15,11 +15,21 @@
   <main class="landing">
     <h2>Select Your Role</h2>
     <div class="role-cards">
+      <% const role = (typeof user !== 'undefined' && user && user.stat) ? String(user.stat).toLowerCase() : ''; %>
+      <% if (role === 'admin') { %>
       <a href="/mechanicDis" class="role-card mechanic-card">
         <span class="role-icon">&#128295;</span>
         <h3>Mechanic</h3>
         <p>Create and edit repair tickets, complete vehicle inspections, upload videos</p>
       </a>
+      <% } else { %>
+      <div class="role-card mechanic-card disabled" aria-hidden="true" title="Admins only">
+        <span class="role-icon">&#128295;</span>
+        <h3>Mechanic</h3>
+        <p class="muted">Admins only</p>
+      </div>
+      <% } %>
+
       <a href="/customerDis" class="role-card customer-card">
         <span class="role-icon">&#128100;</span>
         <h3>Customer</h3>

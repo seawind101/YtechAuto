@@ -1,7 +1,22 @@
 const express = require('express');
 const router = express.Router();
 
-router.get('/ticket', (req, res) => {
+// middleware: only allow admins to access ticket routes
+function ensureAdmin(req, res, next) {
+    let role = '';
+    if (req && req.session && req.session.user && req.session.user.stat) {
+        role = String(req.session.user.stat).toLowerCase();
+    } else if (req && req.cookies && req.cookies.user) {
+        try {
+            const c = JSON.parse(req.cookies.user);
+            if (c && c.stat) role = String(c.stat).toLowerCase();
+        } catch (e) { /* ignore */ }
+    }
+    if (role === 'admin') return next();
+    return res.redirect('/');
+}
+
+router.get('/ticket', ensureAdmin, (req, res) => {
     const userCookie = req.cookies.user;
     if (!userCookie) return res.redirect('/login');
 

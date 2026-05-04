@@ -3,6 +3,7 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const router = express.Router();
 const { ConfidentialClientApplication } = require("@azure/msal-node");
+const { isAdmin } = require('../helpers/admins');
 router.use(cookieParser());
 
 const config = {
@@ -43,30 +44,81 @@ router.get("/auth/callback", async (req, res) => {
         });
         const db = req.app.locals.db;
         if (db) {
-            // SQLite version - Insert or replace user in database
-            
-            try {
-                db.run(`
-                INSERT OR IGNORE INTO users ( email) 
-                VALUES ( ?)`, [ email], function(err) {
-                    if (err) {
-                        console.error('Database error:', err);
+            // Insert user if not exists, then fetch their id and stat, set session and role
+            db.run(`INSERT OR IGNORE INTO users (email) VALUES (?)`, [email], function (err) {
+                if (err) {
+                    console.error('Database error on insert:', err);
+                    // proceed without DB update
+                    req.session.user = { email };
+                    return res.redirect('/');
+                }
+
+                // fetch the user row to get id and existing stat
+                db.get(`SELECT id, stat FROM users WHERE email = ? LIMIT 1`, [email], (gErr, row) => {
+                    if (gErr) {
+                        console.error('Database error fetching user:', gErr);
+                        req.session.user = { email };
+                        return res.redirect('/');
+                    }
+
+                    const userId = row && row.id ? row.id : null;
+                    const currentStat = row && row.stat ? String(row.stat).toLowerCase() : null;
+                    const role = isAdmin(email) ? 'admin' : 'customer';
+
+                    const persistRoleAndRedirect = () => {
+                        // set session user
+                        req.session.user = { id: userId, email, stat: role };
+                        return res.redirect('/');
+                    };
+
+                    if (userId == null) {
+                        // no id -- just set session and continue
+                        req.session.user = { email, stat: role };
+                        return res.redirect('/');
+                    }
+
+                    if (currentStat !== role) {
+                        db.run(`UPDATE users SET stat = ? WHERE id = ?`, [role, userId], (updErr) => {
+                            if (updErr) console.error('Failed to update user stat:', updErr);
+                            persistRoleAndRedirect();
+                        });
                     } else {
-                        console.log(`User ${email} saved to database (Row ID: ${this.lastID})`);
+                        // already has correct role
+                        persistRoleAndRedirect();
                     }
                 });
-            } catch (dbError) {
-                console.error('Database error:', dbError);
-                // Continue with login even if DB fails
-            }
+            });
         } else {
             console.error('Database connection not available');
+            req.session.user = { email };
+            res.redirect('/');
         }
-        
-        res.redirect('/');
     } catch (error) {
         console.error(error);
         res.status(500).send("Authentication Error");
+    }
+});
+
+router.post('/login', (req, res) => {
+    const user = req.session.user;
+    if (user) {
+        const role = isAdmin(user.email) ? 'admin' : 'customer';
+        const userId = user.id || user.ID || user.userId; // adapt to your user id field
+
+        // Persist role to DB and set session
+        req.app.locals.db.run(
+          'UPDATE users SET stat = ? WHERE id = ?',
+          [role, userId],
+          (err) => {
+            if (err) console.error('Failed to update user stat:', err);
+            // ensure session reflects role even if DB update fails
+            req.session.user = Object.assign({}, user, { stat: role });
+            // continue original redirect or response
+            return res.redirect('/'); // adjust as needed
+          }
+        );
+    } else {
+        res.status(401).send('Unauthorized');
     }
 });
 

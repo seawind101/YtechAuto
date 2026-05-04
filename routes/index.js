@@ -6,23 +6,24 @@ router.get('/', (req, res) => {
     
     if (userCookie) {
         try {
-            const user = JSON.parse(userCookie);
+            const parsed = JSON.parse(userCookie);
             const db = req.app.locals.db;
-            
-            // Check if user still exists in database
-            db.get('SELECT id FROM users WHERE email = ?', [user.email], (err, row) => {
+
+            // Check if user still exists in database and fetch stat
+            db.get('SELECT id, stat FROM users WHERE email = ? LIMIT 1', [parsed.email], (err, row) => {
                 if (err) {
                     console.error('Database error:', err);
                     res.clearCookie('user');
                     res.redirect('/login');
                 } else if (row) {
-                    // User exists in database, show main page
-                    res.render('index', { user });
+                    // User exists in database, pass id/email/stat to view
+                    const user = { id: row.id, email: parsed.email, stat: row.stat };
+                    return res.render('index', { user });
                 } else {
                     // User doesn't exist in database, clear cookie and redirect
-                    console.log(`User ${user.email} not found in database, clearing cookie`);
+                    console.log(`User ${parsed.email} not found in database, clearing cookie`);
                     res.clearCookie('user');
-                    res.redirect('/login');
+                    return res.redirect('/login');
                 }
             });
         } catch (error) {

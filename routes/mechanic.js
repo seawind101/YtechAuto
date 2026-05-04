@@ -111,6 +111,25 @@ const signatureUpload = multer({
     }
 });
 
+// middleware: ensure caller is an admin (by session or cookie)
+function ensureAdmin(req, res, next) {
+    const sess = req && req.session && req.session.user;
+    let role = '';
+    if (sess && sess.stat) role = String(sess.stat).toLowerCase();
+    else if (req && req.cookies && req.cookies.user) {
+        try {
+            const c = JSON.parse(req.cookies.user);
+            if (c && c.stat) role = String(c.stat).toLowerCase();
+        } catch (e) { /* ignore */ }
+    }
+    if (role === 'admin') return next();
+    // Not an admin: render customer view with a helpful message
+    return res.render('customerDis', { user: req.session && req.session.user ? req.session.user : null, message: 'You do not have permission to access that page.' });
+}
+
+// apply ensureAdmin to any route that begins with /mechanic
+router.use('/mechanic', ensureAdmin);
+
 router.get('/mechanic', (req, res) => {
     const userCookie = req.cookies.user;
     if (!userCookie) return res.redirect('/login');

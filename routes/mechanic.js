@@ -83,7 +83,7 @@ const videoStorage = multer.diskStorage({
 });
 const videoUpload = multer({
     storage: videoStorage,
-    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+    limits: { fileSize: 250 * 1024 * 1024 }, // 250MB
     fileFilter: function (req, file, cb) {
         const allowedExtensions = /\.(mp4|mov|avi|mkv|webm|wmv|m4v)$/i;
         const allowedMime = /^video\//i;
@@ -1454,7 +1454,18 @@ router.post('/mechanic/emissions', ensureLoggedIn, (req, res) => {
 });
 
 // video upload route (protected with auth)
-router.post('/upload-video', ensureLoggedIn, videoUpload.single('video'), (req, res) => {
+router.post('/upload-video', ensureLoggedIn, (req, res, next) => {
+    videoUpload.single('video')(req, res, (err) => {
+        if (!err) return next();
+        if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(413).json({
+                success: false,
+                message: 'File size is too large. Please break the video down into smaller bits and upload them separately. Videos must be 250 MB or smaller.'
+            });
+        }
+        return res.status(400).json({ success: false, message: err.message || 'Video upload failed' });
+    });
+}, (req, res) => {
     const db = req.app.locals.db;
     if (!db) {
         if (req.file) fs.unlink(req.file.path, () => { });

@@ -1,5 +1,8 @@
 console.log('form.js loaded');
 document.addEventListener('DOMContentLoaded', function () {
+  const MAX_VIDEO_SIZE = 250 * 1024 * 1024;
+  const VIDEO_SIZE_ERROR = 'File size is too large. Please break the video down into smaller bits and upload them separately. Videos must be 250 MB or smaller.';
+
   // guard to avoid double initialization if other scripts also run
   if (window.customAccordionInitialized) {
     console.log('customAccordion already initialized, skipping duplicate init.');
@@ -204,6 +207,14 @@ document.addEventListener('DOMContentLoaded', function () {
         uploadBtn.disabled = true;
         return;
       }
+      if (isVideoFile(file) && file.size > MAX_VIDEO_SIZE) {
+        alert(VIDEO_SIZE_ERROR);
+        videoFileInput.value = '';
+        selectedFile = null;
+        if (p) p.textContent = 'File is too large. Break the video down into smaller bits.';
+        uploadBtn.disabled = true;
+        return;
+      }
       if (isVideoFile(file) && videoUploaded) {
         alert('A video has already been uploaded. You cannot upload another video. Choose a different file type.');
         videoFileInput.value = '';
@@ -272,7 +283,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // ensure any server-rendered or newly-added video previews have remove (×) handlers
             try { if (typeof window.ensureVideoRemoveButtons === 'function') window.ensureVideoRemoveButtons(); } catch (e) {}
           } else {
-            alert('Upload failed: ' + (data && data.message ? data.message : 'Unknown'));
+            alert('Upload failed: ' + (json && json.message ? json.message : 'Unknown'));
             uploadBtn.disabled = false;
             uploadBtn.style.opacity = '1';
             uploadBtn.textContent = 'Upload';
@@ -3404,6 +3415,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isVideo) {
         alert('Please select a video file.');
         videoinput.value = '';
+        return;
+      }
+      if (file.size > MAX_VIDEO_SIZE) {
+        alert(VIDEO_SIZE_ERROR);
+        videoinput.value = '';
+        renderVideoPreview(null);
         return;
       }
 

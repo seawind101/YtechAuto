@@ -198,6 +198,7 @@ async function migrate(options, ticketIds) {
     let destination;
     let migrationSucceeded = false;
     let migratedMediaRows = [];
+    let migratedUsers = [];
     try {
         await run(source, 'PRAGMA foreign_keys = ON');
         const placeholders = ticketIds.map(() => '?').join(',');
@@ -218,6 +219,9 @@ async function migrate(options, ticketIds) {
         await run(destination, 'BEGIN TRANSACTION');
         try {
             const rowsByTable = new Map();
+            const users = await all(source, 'SELECT * FROM users ORDER BY id');
+            migratedUsers = users;
+            await copyRows(destination, 'users', users);
             for (const table of ticketTables) {
                 const rows = table.name === 'tickets'
                     ? tickets
@@ -255,6 +259,7 @@ async function migrate(options, ticketIds) {
         }
         migrationSucceeded = true;
         console.log(`Migrated ticket ID(s): ${ticketIds.join(', ')}`);
+        console.log(`Migrated user account(s): ${migratedUsers.length}`);
         console.log(`New database: ${options.destination}`);
         if (options.removeSource) console.log('The selected tickets were removed from the source database.');
     } finally {

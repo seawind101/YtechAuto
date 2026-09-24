@@ -1347,6 +1347,10 @@ document.addEventListener('DOMContentLoaded', function () {
               // skip inputs that are part of the repairs table (we validate repairs separately)
               if (el.closest && el.closest('#repairs-table')) return;
 
+              // Rotor/drum measurements are optional for a ticket.
+              const brakeRowLabel = el.closest('#brakes tbody tr')?.cells?.[0]?.textContent || '';
+              if (/^rotor\/drum\s/i.test(brakeRowLabel.trim())) return;
+
               // For selects, ensure a non-empty value
               if (el.tagName.toLowerCase() === 'select') {
                 if (!el.value || String(el.value).trim() === '') {
